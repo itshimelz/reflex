@@ -119,6 +119,22 @@ reflex/
 
 ## 📦 Installation & Setup
 
+### ⚡ Quick Install (Pre-compiled Binary)
+
+Install the latest release bundle (`reflex`, `reflexd`, `reflex-agent-fallback`, systemd service, and default config) in seconds:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
+```
+
+Custom options (version, destination directory, or skipping service/config):
+```bash
+# Install specific version to ~/.local/bin
+REFLEX_VERSION=v0.1.0 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
+```
+
+---
+
 ### 1. Prerequisites
 
 Reflex is designed for **Arch Linux** running **Hyprland**. Ensure the following packages are installed:
