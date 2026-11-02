@@ -45,6 +45,10 @@ pub enum WindowAction {
     FocusDirection(Direction),
     CloseActive,
     ToggleFullscreen,
+    ToggleFloating,
+    TogglePin,
+    CenterWindow,
+    ToggleSplit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

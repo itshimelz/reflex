@@ -327,6 +327,46 @@ fn test_window_commands() {
         parse_action("swap down"),
         Some(Action::Window(WindowAction::MoveDirection(Direction::Down)))
     );
+    assert_eq!(
+        parse_action("toggle floating"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("float window"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("float it"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("pin window"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("pin it"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("toggle pin"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("center"),
+        Some(Action::Window(WindowAction::CenterWindow))
+    );
+    assert_eq!(
+        parse_action("center window"),
+        Some(Action::Window(WindowAction::CenterWindow))
+    );
+    assert_eq!(
+        parse_action("toggle split"),
+        Some(Action::Window(WindowAction::ToggleSplit))
+    );
+    assert_eq!(
+        parse_action("change split"),
+        Some(Action::Window(WindowAction::ToggleSplit))
+    );
 }
 
 #[test]

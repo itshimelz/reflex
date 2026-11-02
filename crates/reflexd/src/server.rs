@@ -377,6 +377,58 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     duration_us: start_time.elapsed().as_micros(),
                 }
             }
+            WindowAction::ToggleFloating => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_floating().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ToggleFloating".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::TogglePin => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_pin().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("TogglePin".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::CenterWindow => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.center_window().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("CenterWindow".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::ToggleSplit => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_split().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ToggleSplit".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
             WindowAction::FocusDirection(dir) => {
                 if let Some(ref hypr) = ctx.hyprland {
                     let _ = hypr.focus_direction(*dir).await;

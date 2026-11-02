@@ -250,6 +250,34 @@ pub fn parse_action(input: &str) -> Option<Action> {
         "fullscreen" | "toggle fullscreen" => {
             return Some(Action::Window(WindowAction::ToggleFullscreen));
         }
+        "float"
+        | "float window"
+        | "float it"
+        | "float this"
+        | "unfloat"
+        | "unfloat window"
+        | "unfloat it"
+        | "toggle float"
+        | "toggle floating" => return Some(Action::Window(WindowAction::ToggleFloating)),
+        "pin"
+        | "pin window"
+        | "pin it"
+        | "pin this"
+        | "unpin"
+        | "unpin window"
+        | "unpin it"
+        | "toggle pin" => return Some(Action::Window(WindowAction::TogglePin)),
+        "center"
+        | "center window"
+        | "center it"
+        | "center this"
+        | "center active"
+        | "center active window" => return Some(Action::Window(WindowAction::CenterWindow)),
+        "split"
+        | "toggle split"
+        | "change split"
+        | "switch split"
+        | "swap split" => return Some(Action::Window(WindowAction::ToggleSplit)),
         _ => {}
     }
 
