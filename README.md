@@ -27,7 +27,9 @@
   - **Volume Ceiling Enforcement**: Clamps maximum volume to 80% (0 dB limit).
   - **Velocity Throttling**: Restricts sudden volume jumps to +15% per 500ms sliding window.
   - **Protected Window Confirmation**: Attempts to close critical windows (`kitty`, `brave`, `nvim`, `code`, `antigravity`) pin the window address and require a spoken `"confirm"` within 4.0 seconds.
-- **Directional Tiling Navigation**: Sub-millisecond window swapping (`move left/right/top/down`, `swap left/right/top/down`) and directional focus navigation (`focus left/right/top/down`).
+- **Directional Tiling Navigation & Window Geometry**: Sub-millisecond window swapping (`move left/right/top/down`), directional focus navigation (`focus left/right/top/down`), native floating toggle, multi-workspace pinning, dwindle split orientation toggling, and window centering.
+- **Per-App Audio Stream Control**: Direct PipeWire stream discovery via `pw-dump` allowing instant volume leveling and muting for specific apps (`mute brave`, `unmute spotify`, `brave volume 50`) without losing editor focus.
+- **Safe Wayland Clipboard Utilities**: Virtual typing into restricted terminals via `wtype` guarded by a 500-character safety cap and automated trailing-newline stripping, plus instant buffer clearing and format stripping.
 - **Procedural In-Memory Earcons**: Zero-file-load SIMD sine synthesis generating crisp audible feedback for command success, warnings, errors, camera shutter, and confirmation chimes.
 - **Autonomous AI Fallback (`reflex-agent-fallback`)**: When spoken requests fall outside deterministic grammar, Reflex exits with code `2` (`PassThrough`), instantly routing the transcript to headless `Google Antigravity` (`agy`) with in-place synchronized QuickShell OSD notifications and neural TTS playback.
 
@@ -51,6 +53,12 @@ Reflex normalizes spoken transcripts in memory (stripping conversational filler 
 | `"toggle mute"` | `AudioAction::MuteToggle` | Toggles output mute state |
 | `"toggle mic"`, `"mute mic"`, `"unmute mic"`| `AudioAction::MicMuteToggle`| Toggles default microphone input mute |
 | `"switch audio"`, `"switch speaker"`, `"headphones"`, `"switch to headphones"` | `AudioAction::SwitchPort` | Cycles physical output port (Speakers $\leftrightarrow$ Headphones) |
+| `"mute <app>"`, `"silence <app>"` | `AudioAction::AppAudio { target, mode: Mute(true) }` | Discovers PipeWire node ID for app via `pw-dump` and mutes stream (<5ms) |
+| `"unmute <app>"` | `AudioAction::AppAudio { target, mode: Mute(false) }`| Unmutes background stream for target app node |
+| `"toggle mute <app>"` | `AudioAction::AppAudio { target, mode: ToggleMute }` | Toggles mute state of target application audio stream |
+| `"<app> volume 50"`, `"set <app> volume 60"` | `AudioAction::AppAudio { target, mode: VolumeSet(N) }` | Sets target application stream volume directly |
+| `"turn up <app>"`, `"<app> volume up"` | `AudioAction::AppAudio { target, mode: VolumeStep(+5) }` | Increments target stream volume by +5% |
+| `"turn down <app>"`, `"<app> volume down"` | `AudioAction::AppAudio { target, mode: VolumeStep(-5) }` | Decrements target stream volume by -5% |
 
 ### 2. Media Playback (MPRIS via D-Bus)
 
@@ -80,6 +88,10 @@ Reflex normalizes spoken transcripts in memory (stripping conversational filler 
 | :--- | :--- | :--- |
 | `"focus left"`, `"focus right"`, `"focus top"`, `"focus up"`, `"focus down"`, `"focus bottom"` | `WindowAction::FocusDirection(Dir)` | Switches focus to adjacent tiled window |
 | `"move left"`, `"move right"`, `"move top"`, `"move up"`, `"move down"`, `"swap left"`, `"swap right"` | `WindowAction::MoveDirection(Dir)` | Swaps active window position in tiling layout (<1ms) |
+| `"toggle floating"`, `"float"`, `"float it"`, `"unfloat"` | `WindowAction::ToggleFloating` | Toggles active window between tiling and floating mode natively in Hyprland |
+| `"pin"`, `"pin window"`, `"pin it"`, `"toggle pin"`, `"unpin"` | `WindowAction::TogglePin` | Pins active floating window to follow across all workspaces |
+| `"center"`, `"center window"`, `"center it"`, `"center active"` | `WindowAction::CenterWindow` | Centers active floating window on current display |
+| `"toggle split"`, `"change split"`, `"switch split"`, `"swap split"` | `WindowAction::ToggleSplit` | Toggles Hyprland dwindle layout split orientation |
 | `"fullscreen"`, `"toggle fullscreen"` | `WindowAction::ToggleFullscreen` | Toggles fullscreen mode |
 | `"close"`, `"close it"`, `"close this"`, `"close window"`, `"kill it"` | `WindowAction::CloseActive` | **Guardrailed:** Closes active window. Protected classes require `"confirm"` |
 | `"confirm"` | `Action::Confirm` | Executes pending close on pinned window address |
@@ -94,6 +106,14 @@ Reflex normalizes spoken transcripts in memory (stripping conversational filler 
 | `"screenshot screen"`, `"capture screen"`, `"full screenshot"` | `ScreenshotAction::FullScreen` | Captures entire output canvas |
 | `"snip"`, `"custom selection"`, `"select area"` | `ScreenshotAction::InteractiveSnip`| Launches interactive selection snip |
 | `"screenshot pane left/right/up/down"` | `ScreenshotAction::DirectionalPane(Dir)`| Captures adjacent tiled pane |
+
+### 6. Guardrailed Wayland Clipboard Utilities
+
+| Command / Spoken Variants | Action / AST | Details & Safety Policies |
+| :--- | :--- | :--- |
+| `"type clipboard"`, `"type it"`, `"type that"`, `"paste typing"` | `ClipboardAction::TypeClipboard` | **Guardrailed:** Injects clipboard via `wtype` (2ms key delay). Strict 500-char cap; strips trailing newlines to prevent terminal command execution |
+| `"clear clipboard"`, `"empty clipboard"`, `"clear buffer"` | `ClipboardAction::ClearClipboard` | Clears Wayland clipboard buffer via `wl-copy --clear` |
+| `"strip clipboard"`, `"strip clipboard formatting"` | `ClipboardAction::StripFormatting` | Strips rich formatting, re-copying buffer strictly as `text/plain;charset=utf-8` |
 
 ---
 
