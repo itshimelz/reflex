@@ -7,7 +7,7 @@
 #   curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
 #
 # Options (via environment variables or flags):
-#   REFLEX_VERSION=v0.1.0   Install a specific release version (default: latest)
+#   REFLEX_VERSION=v0.1.2   Install a specific release version (default: latest)
 #   INSTALL_DIR=~/.local/bin Custom destination directory for binaries
 #   SKIP_SERVICE=1          Skip systemd user service setup
 #   SKIP_CONFIG=1           Skip default config.toml creation
@@ -105,7 +105,7 @@ if [ -z "$VERSION" ]; then
 
     # Hard fallback to current stable tag
     if [ -z "$VERSION" ]; then
-        VERSION="v0.1.0"
+        VERSION="v0.1.2"
         log_warn "Could not resolve latest release tag automatically. Falling back to default: ${VERSION}"
     fi
 fi

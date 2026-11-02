@@ -87,7 +87,7 @@ curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | b
 Custom options (version, destination directory, or skipping service/config):
 ```bash
 # Install specific version to ~/.local/bin
-REFLEX_VERSION=v0.1.0 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
+REFLEX_VERSION=v0.1.2 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
 ```
 
 ---
