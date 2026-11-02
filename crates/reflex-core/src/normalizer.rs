@@ -46,7 +46,15 @@ pub fn normalize_transcript(input: &str) -> String {
         .replace("you tube", "youtube")
         .replace("whats app", "whatsapp")
         .replace("screen shot", "screenshot")
-        .replace("screen cap", "screenshot");
+        .replace("screen cap", "screenshot")
+        .replace("toggle plot", "toggle float")
+        .replace("toggle flot", "toggle float")
+        .replace("plot window", "float window")
+        .replace("flot window", "float window")
+        .replace("plot it", "float it")
+        .replace("flot it", "float it")
+        .replace("unplot", "unfloat")
+        .replace("unflot", "unfloat");
 
     // Token-based phonetic / accent / homophone variations
     let mut words: Vec<String> = s.split_whitespace().map(|w| w.to_string()).collect();
@@ -57,6 +65,8 @@ pub fn normalize_transcript(input: &str) -> String {
             "togoli" | "togol" | "toggole" | "togle" | "togal" => *word = "toggle".to_string(),
             "speeker" | "spkr" => *word = "speaker".to_string(),
             "valum" | "valume" | "volum" | "bolume" => *word = "volume".to_string(),
+            "flot" | "flote" | "floot" => *word = "float".to_string(),
+            "floting" | "ploting" | "plotting" => *word = "floating".to_string(),
             _ => {}
         }
     }

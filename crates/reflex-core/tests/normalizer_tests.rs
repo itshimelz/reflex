@@ -36,6 +36,12 @@ fn test_homophone_replacements() {
     assert_eq!(normalize_transcript("togoli speaker"), "toggle speaker");
     assert_eq!(normalize_transcript("togol speaker"), "toggle speaker");
     assert_eq!(normalize_transcript("valum up"), "volume up");
+    assert_eq!(normalize_transcript("toggle plot"), "toggle float");
+    assert_eq!(normalize_transcript("toggle flot"), "toggle float");
+    assert_eq!(normalize_transcript("plot window"), "float window");
+    assert_eq!(normalize_transcript("flot window"), "float window");
+    assert_eq!(normalize_transcript("plot it"), "float it");
+    assert_eq!(normalize_transcript("unplot"), "unfloat");
 }
 
 #[test]

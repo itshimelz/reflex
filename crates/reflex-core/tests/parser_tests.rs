@@ -410,6 +410,30 @@ fn test_window_commands() {
         Some(Action::Window(WindowAction::ToggleFloating))
     );
     assert_eq!(
+        parse_action("toggle plot"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("toggle flot"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("plot it"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("flot window"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("plot"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("flot"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
         parse_action("pin window"),
         Some(Action::Window(WindowAction::TogglePin))
     );
