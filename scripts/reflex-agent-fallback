@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# reflex-agent-fallback
+# High-speed fallback runner for open-ended or cognitive tasks routed from Reflex.
+# Handles in-place OSD notification updates and neural TTS audio output.
+# ==============================================================================
+
+set -euo pipefail
+
+TRANSCRIPT="${*:-}"
+if [ -z "$TRANSCRIPT" ]; then
+    # Try reading from stdin if no arguments provided
+    if [ ! -t 0 ]; then
+        TRANSCRIPT=$(cat -)
+    fi
+fi
+
+TRANSCRIPT=$(echo "$TRANSCRIPT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+if [ -z "$TRANSCRIPT" ]; then
+    exit 0
+fi
+
+# Ensure user desktop environment variables are available
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}"
+
+NOTIFICATION_SYNC="string:x-canonical-private-synchronous:reflex-ai"
+
+# Step 1: Immediate in-place acknowledgment toast
+notify-send -t 15000 -a "Reflex AI" -i "system-run" \
+    -h "$NOTIFICATION_SYNC" \
+    "Reflex → AI Assistant" \
+    "Thinking: \"${TRANSCRIPT}\"..." 2>/dev/null || true
+
+# Step 2: Invoke headless agy with dedicated system prompt and auto-approved autonomous tools
+SYSTEM_PROMPT="You are Reflex AI, the voice desktop assistant for an Arch Linux system running Hyprland.
+The user spoke a natural request that requires cognitive reasoning or autonomous execution.
+Strict Rules:
+1. Answer directly, accurately, and concisely in 1 to 2 short, complete sentences.
+2. Optimize strictly for spoken text-to-speech audio and desktop toast notifications.
+3. Absolutely NO markdown formatting (no asterisks, bold, italics, bullets, headers, backticks, or URLs).
+4. No conversational filler or introductory preamble (e.g. do not say 'Sure, I can help with that' or 'As an AI').
+5. If the user asks to inspect, perform, or calculate something, use your tools immediately and state the factual result."
+
+FULL_PROMPT="[System Instructions]
+${SYSTEM_PROMPT}
+
+[User Voice Request]
+${TRANSCRIPT}"
+
+RAW_OUTPUT=$(agy --dangerously-skip-permissions --effort low --print "$FULL_PROMPT" 2>/dev/null || true)
+
+if [ -z "$RAW_OUTPUT" ]; then
+    notify-send -t 4000 -a "Reflex AI" -i "dialog-error" \
+        -h "$NOTIFICATION_SYNC" \
+        "Reflex → AI Assistant" \
+        "No response generated." 2>/dev/null || true
+    exit 0
+fi
+
+# Step 3: Format and clean response for OSD notification and TTS
+# Strip code blocks
+CLEAN_TEXT=$(echo "$RAW_OUTPUT" | sed -E 's/```[^`]*```//g')
+# Strip markdown formatting (*, #, _, `, [links], etc.)
+CLEAN_TEXT=$(echo "$CLEAN_TEXT" | sed -e 's/[*_`#]//g' -e 's/\[//g' -e 's/\]//g' -e 's/(http[^)]*)//g')
+# Clean whitespace and single-line format
+CLEAN_TEXT=$(echo "$CLEAN_TEXT" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+# Toast display: take first ~250 characters
+TOAST_TEXT=$(echo "$CLEAN_TEXT" | cut -c1-280)
+if [ "${#CLEAN_TEXT}" -gt 280 ]; then
+    TOAST_TEXT="${TOAST_TEXT}..."
+fi
+
+# Step 4: Update OSD notification in-place
+notify-send -t 8000 -a "Reflex AI" -i "dialog-information" \
+    -h "$NOTIFICATION_SYNC" \
+    "AI Assistant" \
+    "$TOAST_TEXT" 2>/dev/null || true
+
+# Step 5: Background Neural TTS Playback
+# Take first 1-2 sentences for concise, natural speech
+SPEECH_TEXT=$(echo "$CLEAN_TEXT" | cut -d'.' -f1-2 | sed -e 's/\.*$//' -e 's/$/./')
+if [ -n "$SPEECH_TEXT" ] && command -v pw-play >/dev/null 2>&1 && command -v uvx >/dev/null 2>&1; then
+    AUDIO_FILE="/tmp/reflex_ai_tts.mp3"
+    (
+        if uvx edge-tts --no-progress --voice en-US-ChristopherNeural --text "$SPEECH_TEXT" --write-media "$AUDIO_FILE" >/dev/null 2>&1; then
+            pw-play "$AUDIO_FILE" >/dev/null 2>&1 || true
+        fi
+    ) &
+fi

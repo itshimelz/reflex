@@ -1,0 +1,15 @@
+[package]
+name = "reflex-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["itshimelz"]
+description = "Deterministic AST, zero-alloc winnow parser, and guardrails for Reflex"
+
+[dependencies]
+winnow = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+[dev-dependencies]
+proptest = "1.6"

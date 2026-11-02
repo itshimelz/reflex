@@ -1,0 +1,26 @@
+# Reflex Configuration: ~/.config/reflex/config.toml
+
+[volume]
+ceiling = 80              # Hard maximum volume (0 dB gain limit)
+max_step_velocity = 15    # Maximum permitted jump in volume per 500ms
+
+[guardrails]
+confirmation_timeout_secs = 4.0
+unkillable_classes = [
+    "kitty",
+    "neovim",
+    "nvim",
+    "brave",
+    "brave-browser",
+    "code",
+    "vscode",
+    "antigravity"
+]
+
+[aliases]
+# Custom user aliases mapping spoken names to cryptic PWA / desktop window classes
+youtube = "brave-agimnkijcaahngcdmfeangaknmldooml-Default"
+whatsapp = "brave-hnpfjngllnobngcgfapefoaidbinmjnm-Default"
+instagram = "brave-maonjhobmgipjnlalmgmflffnflfljbl-Default"
+studio = "jetbrains-studio"
+idea = "jetbrains-idea"

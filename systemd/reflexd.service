@@ -1,0 +1,16 @@
+[Unit]
+Description=Reflex: Low-Latency Deterministic Desktop Automation Daemon
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/reflexd
+Restart=on-failure
+RestartSec=2s
+Environment=RUST_LOG=info
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical-session.target
