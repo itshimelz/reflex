@@ -37,83 +37,19 @@
 
 ## 📋 Command Reference & Grammar
 
-Reflex normalizes spoken transcripts in memory (stripping conversational filler like *"can you please"*, *"hey"*, punctuation, and phonetic homophones).
+Reflex parses natural voice phrasing and CLI input deterministically without any LLM overhead. For the exhaustive reference of all supported commands, natural language variants, AST definitions, guardrail limits, and synthesized earcons, see:
 
-### 1. Audio & Volume Control (PipeWire / WirePlumber)
+👉 **[Exhaustive Commands & Capabilities Reference Manual (COMMANDS.md)](COMMANDS.md)**
 
-| Command / Spoken Variants | Action / AST | Details & Guardrails |
-| :--- | :--- | :--- |
-| `"volume up"`, `"louder"`, `"turn it up"` | `AudioAction::VolumeStep(+5)` | Steps volume up by +5% (velocity checked) |
-| `"volume down"`, `"quieter"`, `"softer"` | `AudioAction::VolumeStep(-5)` | Steps volume down by -5% |
-| `"volume up by 15"`, `"louder by 10%"` | `AudioAction::VolumeStep(+N)` | Steps volume up by $N$% |
-| `"volume down by 20"`, `"quieter by 10%"`| `AudioAction::VolumeStep(-N)` | Steps volume down by $N$% |
-| `"set volume to 60"`, `"volume 40%"` | `AudioAction::VolumeSet(N)` | Sets absolute volume clamped to 80% ceiling |
-| `"mute"`, `"silence"` | `AudioAction::Mute(true)` | Mutes default audio sink |
-| `"unmute"` | `AudioAction::Mute(false)` | Unmutes default audio sink |
-| `"toggle mute"` | `AudioAction::MuteToggle` | Toggles output mute state |
-| `"toggle mic"`, `"mute mic"`, `"unmute mic"`| `AudioAction::MicMuteToggle`| Toggles default microphone input mute |
-| `"switch audio"`, `"switch speaker"`, `"headphones"`, `"switch to headphones"` | `AudioAction::SwitchPort` | Cycles physical output port (Speakers $\leftrightarrow$ Headphones) |
-| `"mute <app>"`, `"silence <app>"` | `AudioAction::AppAudio { target, mode: Mute(true) }` | Discovers PipeWire node ID for app via `pw-dump` and mutes stream (<5ms) |
-| `"unmute <app>"` | `AudioAction::AppAudio { target, mode: Mute(false) }`| Unmutes background stream for target app node |
-| `"toggle mute <app>"` | `AudioAction::AppAudio { target, mode: ToggleMute }` | Toggles mute state of target application audio stream |
-| `"<app> volume 50"`, `"set <app> volume 60"` | `AudioAction::AppAudio { target, mode: VolumeSet(N) }` | Sets target application stream volume directly |
-| `"turn up <app>"`, `"<app> volume up"` | `AudioAction::AppAudio { target, mode: VolumeStep(+5) }` | Increments target stream volume by +5% |
-| `"turn down <app>"`, `"<app> volume down"` | `AudioAction::AppAudio { target, mode: VolumeStep(-5) }` | Decrements target stream volume by -5% |
+### Supported Command Domains at a Glance
 
-### 2. Media Playback (MPRIS via D-Bus)
-
-| Command / Spoken Variants | Action / AST | Details |
-| :--- | :--- | :--- |
-| `"play"`, `"resume"`, `"unpause"` | `MediaAction::Play` | Sends `Play` to active media players |
-| `"pause"`, `"stop"`, `"stop music"`, `"pause video"`, `"stop playback"` | `MediaAction::Pause` | Broadcasts asynchronous `Pause` over D-Bus (<2ms) |
-| `"toggle media"`, `"play pause"` | `MediaAction::Toggle` | Calls `PlayPause` on MPRIS interface |
-| `"next"`, `"skip"`, `"next track"` | `MediaAction::Next` | Skips to next track |
-| `"previous"`, `"prev"`, `"last song"` | `MediaAction::Previous` | Rewinds to previous track |
-| `"replay"`, `"restart track"` | `MediaAction::Replay` | Restarts current track from beginning |
-| `"seek forward 10 seconds"` | `MediaAction::SeekForward(N)` | Jumps forward by $N$ seconds |
-| `"seek backward 30 seconds"` | `MediaAction::SeekBackward(N)` | Jumps backward by $N$ seconds |
-
-### 3. Workspace Navigation & Window Relocation
-
-| Command / Spoken Variants | Action / AST | Details |
-| :--- | :--- | :--- |
-| `"workspace 3"`, `"go to workspace 5"`, `"switch to 2"` | `WorkspaceAction::Focus(N)` | Switches to workspace $N$ (<1ms) |
-| `"move window to workspace 6"`, `"move to 4"` | `WorkspaceAction::MoveWindow { workspace: N, follow: false }` | Relocates active window without moving focus |
-| `"move to 6 and follow"`, `"move window 3 follow"` | `WorkspaceAction::MoveWindow { workspace: N, follow: true }` | Relocates active window and follows focus |
-| `"move YouTube to 4"`, `"move Spotify to 2"` | `Action::MoveNamed { app, workspace, follow }` | Resolves app via 4-tier registry and moves it |
-
-### 4. Window Directional Navigation & Lifecycle
-
-| Command / Spoken Variants | Action / AST | Details |
-| :--- | :--- | :--- |
-| `"focus left"`, `"focus right"`, `"focus top"`, `"focus up"`, `"focus down"`, `"focus bottom"` | `WindowAction::FocusDirection(Dir)` | Switches focus to adjacent tiled window |
-| `"move left"`, `"move right"`, `"move top"`, `"move up"`, `"move down"`, `"swap left"`, `"swap right"` | `WindowAction::MoveDirection(Dir)` | Swaps active window position in tiling layout (<1ms) |
-| `"toggle floating"`, `"float"`, `"float it"`, `"unfloat"` | `WindowAction::ToggleFloating` | Toggles active window between tiling and floating mode natively in Hyprland |
-| `"pin"`, `"pin window"`, `"pin it"`, `"toggle pin"`, `"unpin"` | `WindowAction::TogglePin` | Pins active floating window to follow across all workspaces |
-| `"center"`, `"center window"`, `"center it"`, `"center active"` | `WindowAction::CenterWindow` | Centers active floating window on current display |
-| `"toggle split"`, `"change split"`, `"switch split"`, `"swap split"` | `WindowAction::ToggleSplit` | Toggles Hyprland dwindle layout split orientation |
-| `"fullscreen"`, `"toggle fullscreen"` | `WindowAction::ToggleFullscreen` | Toggles fullscreen mode |
-| `"close"`, `"close it"`, `"close this"`, `"close window"`, `"kill it"` | `WindowAction::CloseActive` | **Guardrailed:** Closes active window. Protected classes require `"confirm"` |
-| `"confirm"` | `Action::Confirm` | Executes pending close on pinned window address |
-| `"open <app>"`, `"launch <app>"`, `"focus <app>"`, `"switch to <app>"` | `Action::Open(App)` | **Single-Instance Aware:** Focuses existing window or launches via `.desktop` |
-| `"close <app>"`, `"kill <app>"` | `Action::Close(App)` | **Guardrailed:** Resolves and closes specific application |
-
-### 5. Screenshots (`grim` + `wl-copy`)
-
-| Command / Spoken Variants | Action / AST | Details |
-| :--- | :--- | :--- |
-| `"screenshot"`, `"screenshot window"`, `"screenshot this"` | `ScreenshotAction::ActiveWindow` | Captures focused window geometry directly |
-| `"screenshot screen"`, `"capture screen"`, `"full screenshot"` | `ScreenshotAction::FullScreen` | Captures entire output canvas |
-| `"snip"`, `"custom selection"`, `"select area"` | `ScreenshotAction::InteractiveSnip`| Launches interactive selection snip |
-| `"screenshot pane left/right/up/down"` | `ScreenshotAction::DirectionalPane(Dir)`| Captures adjacent tiled pane |
-
-### 6. Guardrailed Wayland Clipboard Utilities
-
-| Command / Spoken Variants | Action / AST | Details & Safety Policies |
-| :--- | :--- | :--- |
-| `"type clipboard"`, `"type it"`, `"type that"`, `"paste typing"` | `ClipboardAction::TypeClipboard` | **Guardrailed:** Injects clipboard via `wtype` (2ms key delay). Strict 500-char cap; strips trailing newlines to prevent terminal command execution |
-| `"clear clipboard"`, `"empty clipboard"`, `"clear buffer"` | `ClipboardAction::ClearClipboard` | Clears Wayland clipboard buffer via `wl-copy --clear` |
-| `"strip clipboard"`, `"strip clipboard formatting"` | `ClipboardAction::StripFormatting` | Strips rich formatting, re-copying buffer strictly as `text/plain;charset=utf-8` |
+* **Per-App & Global Audio**: Global volume leveling, mute toggling, physical port swapping (Headphones $\leftrightarrow$ Speakers), and background stream muting / volume control for specific apps (`mute brave`, `unmute spotify`, `brave volume 50`) via WirePlumber / PipeWire.
+* **Media Playback**: Play, pause/stop, toggle, next, previous, replay, and seek forward/backward across all active MPRIS players via D-Bus (<2ms).
+* **Workspace Management**: Direct workspace switching (`workspace 3`) and window relocation (`move to 4 and follow`, `move YouTube to 2`) via Hyprland sockets with event verification.
+* **Window Tiling & Geometry**: Directional focus switching (`focus left/right/top/down`), window swapping (`move left/right/top/down`), native floating toggling (`toggle floating`), multi-workspace pinning (`pin window`), window centering (`center window`), and split orientation toggling (`toggle split`).
+* **Safe Wayland Clipboard Utilities**: Virtual typing into restricted terminals/VMs (`type clipboard`, `type it`) via `wtype` (enforcing a 500-char maximum ceiling and automatic trailing newline stripping to prevent terminal command execution), buffer clearing (`clear clipboard`), and rich formatting stripping (`strip clipboard`).
+* **Single-Instance Application Lifecycle**: Fast workspace focus switching for running apps/PWAs (<1ms), detached cold launches via `.desktop` entries, and guardrailed window closing with confirmation timeouts for protected classes (`kitty`, `brave`, `nvim`, `code`, `antigravity`).
+* **Zero-Drag Screenshots**: Active window box snips, full output canvas captures, directional pane snips, and interactive selections via `grim` and `slurp`.
 
 ---
 
@@ -122,6 +58,7 @@ Reflex normalizes spoken transcripts in memory (stripping conversational filler 
 ```
 reflex/
 ├── Cargo.toml                    # Root workspace definition
+├── COMMANDS.md                   # Exhaustive voice command & capability reference
 ├── config/
 │   └── default_config.toml       # Reference configuration template
 ├── crates/

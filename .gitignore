@@ -3,11 +3,12 @@
 **/*.rs.bk
 *.pdb
 
-# Documentation & internal markdown reports (per repository spec: all docs & markdown files ignored except README.md)
+# Documentation & internal markdown reports (all docs & reports ignored except README.md and COMMANDS.md)
 /docs/
 /.scratch/
 *.md
 !README.md
+!COMMANDS.md
 
 # OS & Editor files
 .DS_Store
