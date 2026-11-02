@@ -135,9 +135,29 @@ REFLEX_VERSION=v0.1.0 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubuserc
 
 ---
 
-### 1. Prerequisites
+### 1. Prerequisites & Ecosystem Dependencies
 
-Reflex is designed for **Arch Linux** running **Hyprland**. Ensure the following packages are installed:
+Reflex is engineered for **Arch Linux** running the **Hyprland** Wayland compositor. It operates within a tri-tier voice ecosystem comprising an upstream speech-to-text dictation engine, system Wayland/audio servers, and an autonomous AI fallback agent.
+
+#### A. Upstream Speech-to-Text Engine: Hex (Required for Voice Input)
+
+Reflex is strictly a deterministic command router and automation daemon; it does not capture raw microphone audio or run speech recognition neural models directly. Instead, it pairs upstream with **[Hex](https://github.com/anomalyco/hex)** (`anomalyco/hex`), a fast, local-first on-device speech-to-text dictation application built in pure Rust with Vulkan GPU acceleration.
+
+| Resource | Link / Command |
+| :--- | :--- |
+| **Official Website** | [https://anoma.ly/hex](https://anoma.ly/hex) |
+| **GitHub Repository** | [https://github.com/anomalyco/hex](https://github.com/anomalyco/hex) |
+| **Linux Documentation** | [https://github.com/anomalyco/hex/blob/main/docs/linux.md](https://github.com/anomalyco/hex/blob/main/docs/linux.md) |
+| **One-Line Linux Installer** | `curl -fsSL https://anoma.ly/hex/install-linux.sh \| sh` |
+
+**Tri-Tier Division of Labor**:
+- **Continuous Voice Dictation (`Hold F8`)**: Hex transcribes spoken speech on-device via Vulkan and types text directly into the focused window using Wayland virtual keyboard protocols (`wtype`).
+- **Reflex Command Dispatch (`Hold F7`)**: Hex captures and transcribes spoken intent upon key release (`hex transcribe`), which is piped into `reflex "$TRANSCRIPT"`.
+- **Autonomous AI Fallback**: If Reflex returns exit code `2` (`PassThrough` / unrecognized command), the transcript is forwarded to `reflex-agent-fallback`.
+
+#### B. Arch Linux Desktop & Compositor Packages
+
+Ensure the following native desktop and audio packages are installed:
 
 ```bash
 sudo pacman -S --needed \
@@ -148,8 +168,24 @@ sudo pacman -S --needed \
     grim \
     slurp \
     wl-clipboard \
-    cargo
+    wtype
 ```
+
+| Package | Purpose in Reflex |
+| :--- | :--- |
+| `hyprland` | Wayland dynamic tiling compositor ([hyprland.org](https://hyprland.org/)); IPC over Unix domain sockets |
+| `pipewire` & `wireplumber` | Audio subsystem ([pipewire.org](https://pipewire.org/)); volume stepping, ceilings, mute, and port switching |
+| `libnotify` (`notify-send`) | System desktop notifications and OSD alerts |
+| `grim` & `slurp` | Full-screen and interactive region screenshot capture |
+| `wl-clipboard` (`wl-copy`/`wl-paste`) | Wayland clipboard integration and plain text formatting sanitizer |
+| `wtype` | Virtual keystroke injection for guardrailed clipboard typing |
+
+#### C. Autonomous Fallback & Neural Audio (Optional)
+
+When spoken requests fall outside deterministic grammar and require multi-step GUI navigation or reasoning:
+- **[Google Antigravity](https://antigravity.google/) (`agy`)**: Headless autonomous desktop and coding agent.
+- **[Edge TTS](https://github.com/rany2/edge-tts)**: Neural text-to-speech voice synthesizer (`uvx edge-tts` or `pip install edge-tts`).
+- **`pw-play`**: PipeWire audio playback tool (included with `pipewire`).
 
 ### 2. Build and Install
 
@@ -213,15 +249,32 @@ systemctl --user enable --now reflexd.service
 systemctl --user status reflexd.service
 ```
 
-### 5. Hyprland Keybind Integration (`~/.config/hypr/custom/keybinds.lua`)
+### 5. Hyprland Keybind Integration
 
-Wire push-to-talk into your Hyprland configuration:
+Wire Push-to-Talk commands and Hex dictation into your Hyprland configuration.
+
+#### Option A: Lua Config (`~/.config/hypr/custom/keybinds.lua`)
 
 ```lua
--- Push-to-Talk (Hold F7): Speak command -> Release to execute
--- Exit code 0: Deterministic command executed successfully
--- Exit code 2: Fallback triggered -> routes to reflex-agent-fallback
+-- ==============================================================================
+-- Reflex & Hex Keybindings
+-- Hold F8: Hex continuous voice dictation (types directly into active window)
+-- Hold F7: Reflex Push-to-Talk voice commands (exit code 2 -> AI fallback)
+-- ==============================================================================
 bind = {
+    -- Hex continuous voice dictation (hold to speak, release to type)
+    {
+        key = "F8",
+        event = "press",
+        exec = "hex dictation start"
+    },
+    {
+        key = "F8",
+        event = "release",
+        exec = "hex dictation stop"
+    },
+
+    -- Reflex deterministic command dispatch & autonomous AI fallback
     {
         key = "F7",
         event = "press",
@@ -233,6 +286,18 @@ bind = {
         exec = "TRANSCRIPT=$(hex transcribe) && (reflex \"$TRANSCRIPT\" || [ $? -eq 2 ] && reflex-agent-fallback \"$TRANSCRIPT\")"
     }
 }
+```
+
+#### Option B: Standard Hyprland Syntax (`~/.config/hypr/hyprland.conf`)
+
+```ini
+# Hold F8: Continuous voice dictation into active window via Hex
+bind = , F8, exec, hex dictation start
+bindr = , F8, exec, hex dictation stop
+
+# Hold F7: Reflex deterministic voice commands & AI fallback
+bind = , F7, exec, echo start > /tmp/reflex_voice_trigger
+bindr = , F7, exec, bash -c 'TRANSCRIPT=$(hex transcribe); reflex "$TRANSCRIPT" || [ $? -eq 2 ] && reflex-agent-fallback "$TRANSCRIPT"'
 ```
 
 ---
