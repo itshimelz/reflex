@@ -225,6 +225,133 @@ pub fn parse_action(input: &str) -> Option<Action> {
         }
     }
 
+    // App audio muting: "mute <app>", "unmute <app>", "silence <app>", "toggle mute <app>"
+    if let Some(rest) = clean.strip_prefix("mute ") {
+        let app = rest.trim();
+        if !app.is_empty() && app != "audio" && app != "mic" {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::Mute(true),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("unmute ") {
+        let app = rest.trim();
+        if !app.is_empty() && app != "audio" && app != "mic" {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::Mute(false),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("silence ") {
+        let app = rest.trim();
+        if !app.is_empty() && app != "audio" {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::Mute(true),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("toggle mute ") {
+        let app = rest.trim();
+        if !app.is_empty() {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::ToggleMute,
+            }));
+        }
+    }
+
+    // App volume: "set <app> volume <num>", "<app> volume <num>", "volume <app> <num>"
+    if let Some(rest) = clean.strip_prefix("set ") {
+        if let Some(idx) = rest.find(" volume") {
+            let app = rest[..idx].trim();
+            let after = rest[idx + 7..]
+                .trim()
+                .trim_start_matches("to")
+                .trim()
+                .trim_end_matches('%')
+                .trim();
+            if let Some(n) = parse_number(after) {
+                if !app.is_empty() {
+                    return Some(Action::Audio(AudioAction::AppAudio {
+                        target: app.to_string(),
+                        mode: AppAudioMode::VolumeSet(n),
+                    }));
+                }
+            }
+        }
+    }
+
+    if let Some(idx) = clean.find(" volume ") {
+        let app = clean[..idx].trim();
+        let after = clean[idx + 8..].trim();
+        if !app.is_empty() && app != "set" {
+            if after == "up" {
+                return Some(Action::Audio(AudioAction::AppAudio {
+                    target: app.to_string(),
+                    mode: AppAudioMode::VolumeStep(5),
+                }));
+            } else if after == "down" {
+                return Some(Action::Audio(AudioAction::AppAudio {
+                    target: app.to_string(),
+                    mode: AppAudioMode::VolumeStep(-5),
+                }));
+            } else {
+                let num_str = after
+                    .trim_start_matches("to")
+                    .trim()
+                    .trim_end_matches('%')
+                    .trim();
+                if let Some(n) = parse_number(num_str) {
+                    return Some(Action::Audio(AudioAction::AppAudio {
+                        target: app.to_string(),
+                        mode: AppAudioMode::VolumeSet(n),
+                    }));
+                }
+            }
+        }
+    }
+
+    if let Some(rest) = clean.strip_prefix("volume ") {
+        let parts: Vec<&str> = rest.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let last = parts.last().unwrap();
+            let num_str = last.trim_end_matches('%');
+            if let Some(n) = parse_number(num_str) {
+                let app_parts = &parts[..parts.len() - 1];
+                let app_str = app_parts.join(" ");
+                let clean_app = app_str.trim_end_matches("to").trim();
+                if !clean_app.is_empty() && clean_app != "up" && clean_app != "down" {
+                    return Some(Action::Audio(AudioAction::AppAudio {
+                        target: clean_app.to_string(),
+                        mode: AppAudioMode::VolumeSet(n),
+                    }));
+                }
+            }
+        }
+    }
+
+    if let Some(rest) = clean.strip_prefix("turn up ") {
+        let app = rest.trim();
+        if !app.is_empty() && app != "volume" && app != "it" {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::VolumeStep(5),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("turn down ") {
+        let app = rest.trim();
+        if !app.is_empty() && app != "volume" && app != "it" {
+            return Some(Action::Audio(AudioAction::AppAudio {
+                target: app.to_string(),
+                mode: AppAudioMode::VolumeStep(-5),
+            }));
+        }
+    }
+
     // 4. Window actions
     match clean.as_str() {
         "close"
@@ -250,6 +377,34 @@ pub fn parse_action(input: &str) -> Option<Action> {
         "fullscreen" | "toggle fullscreen" => {
             return Some(Action::Window(WindowAction::ToggleFullscreen));
         }
+        "float"
+        | "float window"
+        | "float it"
+        | "float this"
+        | "unfloat"
+        | "unfloat window"
+        | "unfloat it"
+        | "toggle float"
+        | "toggle floating" => return Some(Action::Window(WindowAction::ToggleFloating)),
+        "pin"
+        | "pin window"
+        | "pin it"
+        | "pin this"
+        | "unpin"
+        | "unpin window"
+        | "unpin it"
+        | "toggle pin" => return Some(Action::Window(WindowAction::TogglePin)),
+        "center"
+        | "center window"
+        | "center it"
+        | "center this"
+        | "center active"
+        | "center active window" => return Some(Action::Window(WindowAction::CenterWindow)),
+        "split"
+        | "toggle split"
+        | "change split"
+        | "switch split"
+        | "swap split" => return Some(Action::Window(WindowAction::ToggleSplit)),
         _ => {}
     }
 
@@ -307,7 +462,26 @@ pub fn parse_action(input: &str) -> Option<Action> {
         }
     }
 
-    // 6. Workspace focus: "workspace 3", "go to workspace 5", "switch to 4"
+    // 6. Clipboard actions
+    match clean.as_str() {
+        "type clipboard"
+        | "type it"
+        | "type that"
+        | "type buffer"
+        | "paste typing"
+        | "paste as typing"
+        | "type" => return Some(Action::Clipboard(ClipboardAction::TypeClipboard)),
+        "clear clipboard"
+        | "empty clipboard"
+        | "clear buffer" => return Some(Action::Clipboard(ClipboardAction::ClearClipboard)),
+        "strip clipboard"
+        | "strip clipboard formatting"
+        | "clean clipboard"
+        | "plain clipboard" => return Some(Action::Clipboard(ClipboardAction::StripFormatting)),
+        _ => {}
+    }
+
+    // 7. Workspace focus: "workspace 3", "go to workspace 5", "switch to 4"
     let ws_prefixes = [
         "workspace",
         "go to workspace",

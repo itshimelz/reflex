@@ -41,6 +41,7 @@ pub struct ServerContext {
     pub hyprland: Option<Arc<HyprlandDriver>>,
     pub audio: Arc<AudioDriver>,
     pub notify: Arc<NotificationDriver>,
+    pub clipboard: Arc<crate::clipboard::ClipboardDriver>,
     pub registry: Arc<RwLock<AppRegistry>>,
     pub guardrails: Arc<Mutex<GuardrailEngine>>,
     pub config: ReflexConfig,
@@ -310,14 +311,41 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     duration_us: start_time.elapsed().as_micros(),
                 }
             }
-            _ => {
-                ctx.audio.play_earcon(EarconKind::Success).await;
-                IpcResponse {
-                    status: "Success".to_string(),
-                    reason: None,
-                    action: Some("AudioAction".to_string()),
-                    clamped_to: None,
-                    duration_us: start_time.elapsed().as_micros(),
+            AudioAction::AppAudio { target, mode } => {
+                match ctx.audio.handle_app_audio(target, mode).await {
+                    Ok(count) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        let desc = match mode {
+                            AppAudioMode::Mute(true) => format!("Muted {}", target),
+                            AppAudioMode::Mute(false) => format!("Unmuted {}", target),
+                            AppAudioMode::ToggleMute => format!("Toggled mute for {}", target),
+                            AppAudioMode::VolumeSet(v) => format!("Set {} volume to {}%", target, v),
+                            AppAudioMode::VolumeStep(s) => {
+                                format!("Stepped {} volume by {}%", target, s)
+                            }
+                        };
+                        ctx.notify
+                            .notify("App Audio", &desc, "audio-volume-medium", 2000);
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(format!("AppAudio({}, {} stream(s))", target, count)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(reason) => {
+                        ctx.audio.play_earcon(EarconKind::Warning).await;
+                        ctx.notify
+                            .notify("App Audio Failed", &reason, "dialog-warning", 3000);
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(reason),
+                            action: Some(format!("AppAudio({})", target)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
                 }
             }
         },
@@ -373,6 +401,58 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     status: "Success".to_string(),
                     reason: None,
                     action: Some("ToggleFullscreen".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::ToggleFloating => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_floating().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ToggleFloating".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::TogglePin => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_pin().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("TogglePin".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::CenterWindow => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.center_window().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("CenterWindow".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            WindowAction::ToggleSplit => {
+                if let Some(ref hypr) = ctx.hyprland {
+                    let _ = hypr.toggle_split().await;
+                }
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ToggleSplit".to_string()),
                     clamped_to: None,
                     duration_us: start_time.elapsed().as_micros(),
                 }
@@ -544,6 +624,67 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                 duration_us: start_time.elapsed().as_micros(),
             }
         }
+        Action::Clipboard(clip_action) => match clip_action {
+            ClipboardAction::TypeClipboard => {
+                match ctx.clipboard.type_clipboard().await {
+                    Ok(count) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(format!("TypeClipboard({} chars)", count)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(reason) => {
+                        ctx.audio.play_earcon(EarconKind::Warning).await;
+                        ctx.notify.notify(
+                            "⚠️ Clipboard Typing Blocked",
+                            &reason,
+                            "dialog-warning",
+                            3000,
+                        );
+                        IpcResponse {
+                            status: "RejectedByPolicy".to_string(),
+                            reason: Some(reason),
+                            action: Some("TypeClipboard".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            ClipboardAction::ClearClipboard => {
+                let _ = ctx.clipboard.clear().await;
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.notify.notify("Clipboard Cleared", "Buffer emptied", "edit-clear", 2000);
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ClearClipboard".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            ClipboardAction::StripFormatting => {
+                let _ = ctx.clipboard.strip_formatting().await;
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.notify.notify(
+                    "Clipboard Stripped",
+                    "Converted to plain text",
+                    "edit-paste",
+                    2000,
+                );
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("StripFormatting".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+        },
         Action::Open(app) => {
             if let Some(ref hypr) = ctx.hyprland {
                 // Tier A: Single-Instance Focus Check

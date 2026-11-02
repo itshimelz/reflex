@@ -137,6 +137,76 @@ fn test_audio_commands() {
         parse_action("headphones"),
         Some(Action::Audio(AudioAction::SwitchPort))
     );
+    assert_eq!(
+        parse_action("mute brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::Mute(true)
+        }))
+    );
+    assert_eq!(
+        parse_action("unmute spotify"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "spotify".to_string(),
+            mode: AppAudioMode::Mute(false)
+        }))
+    );
+    assert_eq!(
+        parse_action("silence discord"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "discord".to_string(),
+            mode: AppAudioMode::Mute(true)
+        }))
+    );
+    assert_eq!(
+        parse_action("toggle mute brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::ToggleMute
+        }))
+    );
+    assert_eq!(
+        parse_action("set brave volume 50"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeSet(50)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume 70"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeSet(70)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume up"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(5)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume down"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(-5)
+        }))
+    );
+    assert_eq!(
+        parse_action("turn up brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(5)
+        }))
+    );
+    assert_eq!(
+        parse_action("turn down brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(-5)
+        }))
+    );
 }
 
 #[test]
@@ -327,6 +397,46 @@ fn test_window_commands() {
         parse_action("swap down"),
         Some(Action::Window(WindowAction::MoveDirection(Direction::Down)))
     );
+    assert_eq!(
+        parse_action("toggle floating"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("float window"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("float it"),
+        Some(Action::Window(WindowAction::ToggleFloating))
+    );
+    assert_eq!(
+        parse_action("pin window"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("pin it"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("toggle pin"),
+        Some(Action::Window(WindowAction::TogglePin))
+    );
+    assert_eq!(
+        parse_action("center"),
+        Some(Action::Window(WindowAction::CenterWindow))
+    );
+    assert_eq!(
+        parse_action("center window"),
+        Some(Action::Window(WindowAction::CenterWindow))
+    );
+    assert_eq!(
+        parse_action("toggle split"),
+        Some(Action::Window(WindowAction::ToggleSplit))
+    );
+    assert_eq!(
+        parse_action("change split"),
+        Some(Action::Window(WindowAction::ToggleSplit))
+    );
 }
 
 #[test]
@@ -376,6 +486,38 @@ fn test_screenshot_commands() {
         Some(Action::Screenshot(ScreenshotAction::DirectionalPane(
             Direction::Left
         )))
+    );
+}
+
+#[test]
+fn test_clipboard_commands() {
+    assert_eq!(
+        parse_action("type clipboard"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("type it"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("paste typing"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("clear clipboard"),
+        Some(Action::Clipboard(ClipboardAction::ClearClipboard))
+    );
+    assert_eq!(
+        parse_action("empty clipboard"),
+        Some(Action::Clipboard(ClipboardAction::ClearClipboard))
+    );
+    assert_eq!(
+        parse_action("strip clipboard"),
+        Some(Action::Clipboard(ClipboardAction::StripFormatting))
+    );
+    assert_eq!(
+        parse_action("strip clipboard formatting"),
+        Some(Action::Clipboard(ClipboardAction::StripFormatting))
     );
 }
 

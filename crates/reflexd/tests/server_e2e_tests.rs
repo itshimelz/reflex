@@ -22,11 +22,13 @@ async fn test_server_e2e_cycle() {
 
     let audio = Arc::new(AudioDriver::new().await.expect("audio driver"));
     let notify = Arc::new(NotificationDriver::new().await.expect("notify driver"));
+    let clipboard = Arc::new(reflexd::clipboard::ClipboardDriver::new());
 
     let ctx = Arc::new(ServerContext {
         hyprland: None, // Standalone test mode without active Hyprland
         audio,
         notify,
+        clipboard,
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,
@@ -105,4 +107,49 @@ async fn test_server_e2e_cycle() {
     assert_eq!(json3["status"], "RejectedByPolicy");
     assert_eq!(json3["reason"], "VolumeVelocityExceeded");
     assert_eq!(json3["clamped_to"], 70);
+
+    // 4. Test "clear clipboard" -> Success
+    let mut stream4 = UnixStream::connect(&socket_path)
+        .await
+        .expect("connect stream 4");
+    stream4
+        .write_all(b"clear clipboard\n")
+        .await
+        .expect("write command 4");
+    stream4.flush().await.expect("flush command 4");
+
+    let mut reader4 = BufReader::new(stream4);
+    let mut response4 = String::new();
+    reader4
+        .read_line(&mut response4)
+        .await
+        .expect("read response 4");
+
+    let json4: Value = serde_json::from_str(&response4).expect("parse json 4");
+    assert_eq!(json4["status"], "Success");
+    assert_eq!(json4["action"], "ClearClipboard");
+
+    // 5. Test "mute nonexistentapp" -> Error (No stream found)
+    let mut stream5 = UnixStream::connect(&socket_path)
+        .await
+        .expect("connect stream 5");
+    stream5
+        .write_all(b"mute nonexistentapp\n")
+        .await
+        .expect("write command 5");
+    stream5.flush().await.expect("flush command 5");
+
+    let mut reader5 = BufReader::new(stream5);
+    let mut response5 = String::new();
+    reader5
+        .read_line(&mut response5)
+        .await
+        .expect("read response 5");
+
+    let json5: Value = serde_json::from_str(&response5).expect("parse json 5");
+    assert_eq!(json5["status"], "Error");
+    assert!(json5["reason"]
+        .as_str()
+        .unwrap()
+        .contains("No active audio stream found for 'nonexistentapp'"));
 }

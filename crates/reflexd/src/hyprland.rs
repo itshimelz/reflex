@@ -238,6 +238,31 @@ impl HyprlandDriver {
         Ok(())
     }
 
+    /// Toggle floating mode for active window
+    pub async fn toggle_floating(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.dispatch_raw("dispatch hl.dsp.window.float({ action = \"toggle\" })")
+            .await?;
+        Ok(())
+    }
+
+    /// Toggle pin for active window (pins floating window across workspaces)
+    pub async fn toggle_pin(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.dispatch_raw("dispatch hl.dsp.window.pin()").await?;
+        Ok(())
+    }
+
+    /// Center active floating window
+    pub async fn center_window(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.dispatch_raw("dispatch hl.dsp.window.center()").await?;
+        Ok(())
+    }
+
+    /// Toggle dwindle split orientation
+    pub async fn toggle_split(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.dispatch_raw("dispatch hl.dsp.layout(\"togglesplit\")").await?;
+        Ok(())
+    }
+
     /// Move focus in direction
     pub async fn focus_direction(
         &self,

@@ -23,6 +23,14 @@ pub enum MediaAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AppAudioMode {
+    Mute(bool),
+    ToggleMute,
+    VolumeSet(u8),
+    VolumeStep(i8),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AudioAction {
     VolumeStep(i8),
     VolumeSet(u8),
@@ -30,7 +38,10 @@ pub enum AudioAction {
     Mute(bool),
     MicMuteToggle,
     SwitchPort,
-    AppAudio { target: String, mode: String },
+    AppAudio {
+        target: String,
+        mode: AppAudioMode,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +56,10 @@ pub enum WindowAction {
     FocusDirection(Direction),
     CloseActive,
     ToggleFullscreen,
+    ToggleFloating,
+    TogglePin,
+    CenterWindow,
+    ToggleSplit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,12 +73,20 @@ pub enum ScreenshotAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClipboardAction {
+    TypeClipboard,
+    ClearClipboard,
+    StripFormatting,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Action {
     Media(MediaAction),
     Audio(AudioAction),
     Workspace(WorkspaceAction),
     Window(WindowAction),
     Screenshot(ScreenshotAction),
+    Clipboard(ClipboardAction),
     Open(String),
     Close(String),
     MoveNamed {
