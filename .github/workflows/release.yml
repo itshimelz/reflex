@@ -1,0 +1,112 @@
+name: Release Binary
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag name (e.g. v0.1.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release (x86_64 Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system dependencies (ALSA & pkg-config)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run test suite
+        run: cargo test --locked
+
+      - name: Determine version tag
+        id: vars
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG="${{ inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "reflex") | .version')
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Building release for tag: ${TAG}"
+
+      - name: Build release binaries
+        run: cargo build --release --locked
+
+      - name: Package release assets
+        run: |
+          TAG="${{ steps.vars.outputs.tag }}"
+          TARGET="x86_64-unknown-linux-gnu"
+          PKG_NAME="reflex-${TAG}-${TARGET}"
+          DIST_DIR="dist"
+          PKG_DIR="${DIST_DIR}/${PKG_NAME}"
+
+          mkdir -p "${PKG_DIR}"
+          mkdir -p "${PKG_DIR}/systemd"
+          mkdir -p "${PKG_DIR}/config"
+
+          # Strip binaries for smallest footprint
+          strip target/release/reflex
+          strip target/release/reflexd
+
+          # Copy binaries and assets into package directory
+          cp target/release/reflex "${PKG_DIR}/"
+          cp target/release/reflexd "${PKG_DIR}/"
+          cp scripts/reflex-agent-fallback "${PKG_DIR}/"
+          chmod +x "${PKG_DIR}/reflex-agent-fallback"
+          cp systemd/reflexd.service "${PKG_DIR}/systemd/"
+          cp config/default_config.toml "${PKG_DIR}/config/"
+          cp README.md LICENSE-MIT "${PKG_DIR}/"
+
+          # Create tarball archive
+          tar -czf "${DIST_DIR}/${PKG_NAME}.tar.gz" -C "${DIST_DIR}" "${PKG_NAME}"
+
+          # Standalone binaries for direct downloading
+          cp target/release/reflex "${DIST_DIR}/reflex"
+          cp target/release/reflexd "${DIST_DIR}/reflexd"
+
+          # Generate SHA256 checksums
+          cd "${DIST_DIR}"
+          sha256sum "${PKG_NAME}.tar.gz" > "${PKG_NAME}.tar.gz.sha256"
+          sha256sum "${PKG_NAME}.tar.gz" reflex reflexd > SHA256SUMS.txt
+          cd -
+
+          ls -la "${DIST_DIR}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: "Reflex ${{ steps.vars.outputs.tag }}"
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256
+            dist/SHA256SUMS.txt
+            dist/reflex
+            dist/reflexd
+          generate_release_notes: true
+          draft: false
+          prerelease: false
