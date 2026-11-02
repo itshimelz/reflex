@@ -335,7 +335,26 @@ pub fn parse_action(input: &str) -> Option<Action> {
         }
     }
 
-    // 6. Workspace focus: "workspace 3", "go to workspace 5", "switch to 4"
+    // 6. Clipboard actions
+    match clean.as_str() {
+        "type clipboard"
+        | "type it"
+        | "type that"
+        | "type buffer"
+        | "paste typing"
+        | "paste as typing"
+        | "type" => return Some(Action::Clipboard(ClipboardAction::TypeClipboard)),
+        "clear clipboard"
+        | "empty clipboard"
+        | "clear buffer" => return Some(Action::Clipboard(ClipboardAction::ClearClipboard)),
+        "strip clipboard"
+        | "strip clipboard formatting"
+        | "clean clipboard"
+        | "plain clipboard" => return Some(Action::Clipboard(ClipboardAction::StripFormatting)),
+        _ => {}
+    }
+
+    // 7. Workspace focus: "workspace 3", "go to workspace 5", "switch to 4"
     let ws_prefixes = [
         "workspace",
         "go to workspace",

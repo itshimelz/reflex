@@ -78,10 +78,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
 
     // 5. Build Server Context
+    let clipboard = Arc::new(reflexd::clipboard::ClipboardDriver::new());
     let ctx = Arc::new(ServerContext {
         hyprland,
         audio,
         notify,
+        clipboard,
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,

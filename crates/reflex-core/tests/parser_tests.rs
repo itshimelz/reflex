@@ -420,6 +420,38 @@ fn test_screenshot_commands() {
 }
 
 #[test]
+fn test_clipboard_commands() {
+    assert_eq!(
+        parse_action("type clipboard"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("type it"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("paste typing"),
+        Some(Action::Clipboard(ClipboardAction::TypeClipboard))
+    );
+    assert_eq!(
+        parse_action("clear clipboard"),
+        Some(Action::Clipboard(ClipboardAction::ClearClipboard))
+    );
+    assert_eq!(
+        parse_action("empty clipboard"),
+        Some(Action::Clipboard(ClipboardAction::ClearClipboard))
+    );
+    assert_eq!(
+        parse_action("strip clipboard"),
+        Some(Action::Clipboard(ClipboardAction::StripFormatting))
+    );
+    assert_eq!(
+        parse_action("strip clipboard formatting"),
+        Some(Action::Clipboard(ClipboardAction::StripFormatting))
+    );
+}
+
+#[test]
 fn test_confirmation_and_app_lifecycle() {
     assert_eq!(parse_action("confirm"), Some(Action::Confirm));
     assert_eq!(

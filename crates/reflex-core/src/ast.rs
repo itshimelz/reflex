@@ -62,12 +62,20 @@ pub enum ScreenshotAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClipboardAction {
+    TypeClipboard,
+    ClearClipboard,
+    StripFormatting,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Action {
     Media(MediaAction),
     Audio(AudioAction),
     Workspace(WorkspaceAction),
     Window(WindowAction),
     Screenshot(ScreenshotAction),
+    Clipboard(ClipboardAction),
     Open(String),
     Close(String),
     MoveNamed {

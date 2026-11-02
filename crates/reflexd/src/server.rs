@@ -41,6 +41,7 @@ pub struct ServerContext {
     pub hyprland: Option<Arc<HyprlandDriver>>,
     pub audio: Arc<AudioDriver>,
     pub notify: Arc<NotificationDriver>,
+    pub clipboard: Arc<crate::clipboard::ClipboardDriver>,
     pub registry: Arc<RwLock<AppRegistry>>,
     pub guardrails: Arc<Mutex<GuardrailEngine>>,
     pub config: ReflexConfig,
@@ -596,6 +597,67 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                 duration_us: start_time.elapsed().as_micros(),
             }
         }
+        Action::Clipboard(clip_action) => match clip_action {
+            ClipboardAction::TypeClipboard => {
+                match ctx.clipboard.type_clipboard().await {
+                    Ok(count) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(format!("TypeClipboard({} chars)", count)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(reason) => {
+                        ctx.audio.play_earcon(EarconKind::Warning).await;
+                        ctx.notify.notify(
+                            "⚠️ Clipboard Typing Blocked",
+                            &reason,
+                            "dialog-warning",
+                            3000,
+                        );
+                        IpcResponse {
+                            status: "RejectedByPolicy".to_string(),
+                            reason: Some(reason),
+                            action: Some("TypeClipboard".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            ClipboardAction::ClearClipboard => {
+                let _ = ctx.clipboard.clear().await;
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.notify.notify("Clipboard Cleared", "Buffer emptied", "edit-clear", 2000);
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("ClearClipboard".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+            ClipboardAction::StripFormatting => {
+                let _ = ctx.clipboard.strip_formatting().await;
+                ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.notify.notify(
+                    "Clipboard Stripped",
+                    "Converted to plain text",
+                    "edit-paste",
+                    2000,
+                );
+                IpcResponse {
+                    status: "Success".to_string(),
+                    reason: None,
+                    action: Some("StripFormatting".to_string()),
+                    clamped_to: None,
+                    duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+        },
         Action::Open(app) => {
             if let Some(ref hypr) = ctx.hyprland {
                 // Tier A: Single-Instance Focus Check
