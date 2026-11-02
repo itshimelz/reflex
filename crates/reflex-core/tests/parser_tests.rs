@@ -137,6 +137,76 @@ fn test_audio_commands() {
         parse_action("headphones"),
         Some(Action::Audio(AudioAction::SwitchPort))
     );
+    assert_eq!(
+        parse_action("mute brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::Mute(true)
+        }))
+    );
+    assert_eq!(
+        parse_action("unmute spotify"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "spotify".to_string(),
+            mode: AppAudioMode::Mute(false)
+        }))
+    );
+    assert_eq!(
+        parse_action("silence discord"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "discord".to_string(),
+            mode: AppAudioMode::Mute(true)
+        }))
+    );
+    assert_eq!(
+        parse_action("toggle mute brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::ToggleMute
+        }))
+    );
+    assert_eq!(
+        parse_action("set brave volume 50"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeSet(50)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume 70"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeSet(70)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume up"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(5)
+        }))
+    );
+    assert_eq!(
+        parse_action("brave volume down"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(-5)
+        }))
+    );
+    assert_eq!(
+        parse_action("turn up brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(5)
+        }))
+    );
+    assert_eq!(
+        parse_action("turn down brave"),
+        Some(Action::Audio(AudioAction::AppAudio {
+            target: "brave".to_string(),
+            mode: AppAudioMode::VolumeStep(-5)
+        }))
+    );
 }
 
 #[test]

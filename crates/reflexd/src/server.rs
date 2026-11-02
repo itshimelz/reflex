@@ -311,14 +311,41 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     duration_us: start_time.elapsed().as_micros(),
                 }
             }
-            _ => {
-                ctx.audio.play_earcon(EarconKind::Success).await;
-                IpcResponse {
-                    status: "Success".to_string(),
-                    reason: None,
-                    action: Some("AudioAction".to_string()),
-                    clamped_to: None,
-                    duration_us: start_time.elapsed().as_micros(),
+            AudioAction::AppAudio { target, mode } => {
+                match ctx.audio.handle_app_audio(target, mode).await {
+                    Ok(count) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        let desc = match mode {
+                            AppAudioMode::Mute(true) => format!("Muted {}", target),
+                            AppAudioMode::Mute(false) => format!("Unmuted {}", target),
+                            AppAudioMode::ToggleMute => format!("Toggled mute for {}", target),
+                            AppAudioMode::VolumeSet(v) => format!("Set {} volume to {}%", target, v),
+                            AppAudioMode::VolumeStep(s) => {
+                                format!("Stepped {} volume by {}%", target, s)
+                            }
+                        };
+                        ctx.notify
+                            .notify("App Audio", &desc, "audio-volume-medium", 2000);
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(format!("AppAudio({}, {} stream(s))", target, count)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(reason) => {
+                        ctx.audio.play_earcon(EarconKind::Warning).await;
+                        ctx.notify
+                            .notify("App Audio Failed", &reason, "dialog-warning", 3000);
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(reason),
+                            action: Some(format!("AppAudio({})", target)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
                 }
             }
         },

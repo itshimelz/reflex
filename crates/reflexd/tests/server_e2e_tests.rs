@@ -128,4 +128,28 @@ async fn test_server_e2e_cycle() {
     let json4: Value = serde_json::from_str(&response4).expect("parse json 4");
     assert_eq!(json4["status"], "Success");
     assert_eq!(json4["action"], "ClearClipboard");
+
+    // 5. Test "mute nonexistentapp" -> Error (No stream found)
+    let mut stream5 = UnixStream::connect(&socket_path)
+        .await
+        .expect("connect stream 5");
+    stream5
+        .write_all(b"mute nonexistentapp\n")
+        .await
+        .expect("write command 5");
+    stream5.flush().await.expect("flush command 5");
+
+    let mut reader5 = BufReader::new(stream5);
+    let mut response5 = String::new();
+    reader5
+        .read_line(&mut response5)
+        .await
+        .expect("read response 5");
+
+    let json5: Value = serde_json::from_str(&response5).expect("parse json 5");
+    assert_eq!(json5["status"], "Error");
+    assert!(json5["reason"]
+        .as_str()
+        .unwrap()
+        .contains("No active audio stream found for 'nonexistentapp'"));
 }

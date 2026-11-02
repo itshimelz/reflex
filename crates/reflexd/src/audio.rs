@@ -231,4 +231,127 @@ impl AudioDriver {
         });
         Ok(())
     }
+
+    /// Discover PipeWire node IDs for an application target
+    pub async fn find_app_sink_nodes(&self, target: &str) -> Vec<u32> {
+        let clean_target = target.trim().to_lowercase();
+        if clean_target.is_empty() {
+            return Vec::new();
+        }
+
+        let output = match tokio::process::Command::new("pw-dump")
+            .arg("Node")
+            .output()
+            .await
+        {
+            Ok(out) => out,
+            Err(_) => return Vec::new(),
+        };
+
+        if !output.status.success() {
+            return Vec::new();
+        }
+
+        let nodes: Vec<PwDumpNode> = match serde_json::from_slice(&output.stdout) {
+            Ok(n) => n,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut matched_ids = Vec::new();
+        for node in nodes {
+            if let Some(info) = node.info {
+                if let Some(props) = info.props {
+                    if props.media_class.as_deref() == Some("Stream/Output/Audio") {
+                        let matches = [
+                            props.app_name.as_deref(),
+                            props.app_id.as_deref(),
+                            props.binary.as_deref(),
+                            props.node_name.as_deref(),
+                            props.media_name.as_deref(),
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .any(|val| val.to_lowercase().contains(&clean_target));
+
+                        if matches {
+                            matched_ids.push(node.id);
+                        }
+                    }
+                }
+            }
+        }
+
+        matched_ids
+    }
+
+    /// Control audio stream of a specific target app
+    pub async fn handle_app_audio(
+        &self,
+        target: &str,
+        mode: &reflex_core::ast::AppAudioMode,
+    ) -> Result<usize, String> {
+        let node_ids = self.find_app_sink_nodes(target).await;
+        if node_ids.is_empty() {
+            return Err(format!("No active audio stream found for '{}'", target));
+        }
+
+        for &id in &node_ids {
+            let id_str = id.to_string();
+            let mut cmd = tokio::process::Command::new("wpctl");
+            match mode {
+                reflex_core::ast::AppAudioMode::Mute(m) => {
+                    let arg = if *m { "1" } else { "0" };
+                    cmd.args(["set-mute", &id_str, arg]);
+                }
+                reflex_core::ast::AppAudioMode::ToggleMute => {
+                    cmd.args(["set-mute", &id_str, "toggle"]);
+                }
+                reflex_core::ast::AppAudioMode::VolumeSet(vol) => {
+                    let val_f = *vol as f64 / 100.0;
+                    cmd.args(["set-volume", &id_str, &format!("{:.2}", val_f)]);
+                }
+                reflex_core::ast::AppAudioMode::VolumeStep(step) => {
+                    let abs_step = step.abs() as f64 / 100.0;
+                    let arg = if *step >= 0 {
+                        format!("{:.2}+", abs_step)
+                    } else {
+                        format!("{:.2}-", abs_step)
+                    };
+                    cmd.args(["set-volume", &id_str, &arg]);
+                }
+            }
+            let _ = cmd.output().await;
+        }
+
+        Ok(node_ids.len())
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct PwDumpNode {
+    id: u32,
+    #[serde(default)]
+    info: Option<PwDumpNodeInfo>,
+}
+
+#[derive(serde::Deserialize)]
+struct PwDumpNodeInfo {
+    #[serde(default)]
+    props: Option<PwDumpProps>,
+}
+
+#[derive(serde::Deserialize)]
+struct PwDumpProps {
+    #[serde(rename = "media.class")]
+    media_class: Option<String>,
+    #[serde(rename = "application.name")]
+    app_name: Option<String>,
+    #[serde(rename = "application.id")]
+    app_id: Option<String>,
+    #[serde(rename = "application.process.binary")]
+    binary: Option<String>,
+    #[serde(rename = "node.name")]
+    node_name: Option<String>,
+    #[serde(rename = "media.name")]
+    media_name: Option<String>,
 }

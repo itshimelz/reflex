@@ -23,6 +23,14 @@ pub enum MediaAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AppAudioMode {
+    Mute(bool),
+    ToggleMute,
+    VolumeSet(u8),
+    VolumeStep(i8),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AudioAction {
     VolumeStep(i8),
     VolumeSet(u8),
@@ -30,7 +38,10 @@ pub enum AudioAction {
     Mute(bool),
     MicMuteToggle,
     SwitchPort,
-    AppAudio { target: String, mode: String },
+    AppAudio {
+        target: String,
+        mode: AppAudioMode,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
