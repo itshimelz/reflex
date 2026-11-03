@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded squircle badge -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bgGrad)" stroke="#1E293B" stroke-width="8" />
+
+  <!-- Subtle ambient inner glow ring -->
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="none" stroke="url(#glowGrad)" stroke-width="12" />
+
+  <!-- Reflex Geometric 'R' with Lightning Slash -->
+  <g fill="url(#neonGrad)">
+    <!-- Vertical stem with bevels -->
+    <path d="M 140 120 L 195 120 L 195 392 L 140 392 Z" />
+
+    <!-- Top loop of R with high-tech angled corner -->
+    <path d="M 195 120 L 320 120 C 365 120 395 148 395 192 C 395 236 365 264 320 264 L 195 264 Z M 195 168 L 195 216 L 310 216 C 330 216 345 208 345 192 C 345 176 330 168 310 168 Z" fill-rule="evenodd" />
+
+    <!-- Dynamic Lightning Kick Leg of R -->
+    <polygon points="260,248 340,248 290,320 372,320 270,400 300,326 230,326" />
+  </g>
+
+  <!-- Speed accent ticks on top right -->
+  <line x1="390" y1="120" x2="420" y2="120" stroke="#00F0FF" stroke-width="6" stroke-linecap="round" />
+  <line x1="375" y1="95" x2="405" y2="95" stroke="#38BDF8" stroke-width="6" stroke-linecap="round" />
+</svg>

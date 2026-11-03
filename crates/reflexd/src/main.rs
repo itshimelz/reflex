@@ -102,7 +102,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         config,
     });
 
-    // 6. Run IPC Server with graceful shutdown
+    // 6. Spawn LAN Network Server (for mobile remote / network voice commands)
+    let ctx_for_net = Arc::clone(&ctx);
+    tokio::spawn(async move {
+        if let Err(e) = reflexd::network_listener::run_network_server(
+            ctx_for_net,
+            reflexd::network_listener::DEFAULT_NETWORK_PORT,
+        )
+        .await
+        {
+            error!("reflexd network listener error: {}", e);
+        }
+    });
+
+    // 7. Run Local Unix Socket IPC Server with graceful shutdown
     tokio::select! {
         res = run_server(ctx) => {
             if let Err(e) = res {

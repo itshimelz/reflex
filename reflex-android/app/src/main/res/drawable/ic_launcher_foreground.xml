@@ -1,0 +1,71 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Reflex Geometric 'R' Stem (centered) -->
+    <path
+        android:pathData="M 33,26 L 44,26 L 44,82 L 33,82 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="33"
+                android:startY="26"
+                android:endX="78"
+                android:endY="82"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Reflex Loop -->
+    <path
+        android:pathData="M 44,26 L 68,26 C 77,26 83,32 83,41 C 83,50 77,56 68,56 L 44,56 Z M 44,36 L 44,46 L 66,46 C 70,46 73,44 73,41 C 73,38 70,36 66,36 Z"
+        android:fillType="evenOdd">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="44"
+                android:startY="26"
+                android:endX="83"
+                android:endY="56"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Reflex Lightning Kick Leg -->
+    <path
+        android:pathData="M 57,53 L 73,53 L 63,68 L 79,68 L 59,84 L 65,69 L 51,69 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="51"
+                android:startY="53"
+                android:endX="79"
+                android:endY="84"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Speed Ticks -->
+    <path
+        android:pathData="M 82,26 L 88,26"
+        android:strokeColor="#FF00F0FF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 79,21 L 85,21"
+        android:strokeColor="#FF38BDF8"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+</vector>

@@ -1,0 +1,93 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Background rounded squircle badge -->
+    <path
+        android:pathData="M 144,32 L 368,32 C 430,32 480,82 480,144 L 480,368 C 480,430 430,480 368,480 L 144,480 C 82,480 32,430 32,368 L 32,144 C 32,82 82,32 144,32 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="32"
+                android:startY="32"
+                android:endX="480"
+                android:endY="480"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF0F172A" />
+                <item android:offset="1.0" android:color="#FF020617" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer tech border -->
+    <path
+        android:pathData="M 144,36 L 368,36 C 428,36 476,84 476,144 L 476,368 C 476,428 428,476 368,476 L 144,476 C 84,476 36,428 36,368 L 36,144 C 36,84 84,36 144,36 Z"
+        android:strokeColor="#FF1E293B"
+        android:strokeWidth="6" />
+
+    <!-- Reflex Geometric 'R' Vertical Stem -->
+    <path
+        android:pathData="M 140,120 L 195,120 L 195,392 L 140,392 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="140"
+                android:startY="120"
+                android:endX="395"
+                android:endY="392"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Reflex Geometric 'R' Loop -->
+    <path
+        android:pathData="M 195,120 L 320,120 C 365,120 395,148 395,192 C 395,236 365,264 320,264 L 195,264 Z M 195,168 L 195,216 L 310,216 C 330,216 345,208 345,192 C 345,176 330,168 310,168 Z"
+        android:fillType="evenOdd">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="195"
+                android:startY="120"
+                android:endX="395"
+                android:endY="264"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Reflex Lightning Kick Leg -->
+    <path
+        android:pathData="M 260,248 L 340,248 L 290,320 L 372,320 L 270,400 L 300,326 L 230,326 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="230"
+                android:startY="248"
+                android:endX="372"
+                android:endY="400"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF00F0FF" />
+                <item android:offset="0.5" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Speed accent lines -->
+    <path
+        android:pathData="M 390,120 L 420,120"
+        android:strokeColor="#FF00F0FF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 375,95 L 405,95"
+        android:strokeColor="#FF38BDF8"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+</vector>

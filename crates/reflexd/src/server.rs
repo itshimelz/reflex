@@ -93,19 +93,47 @@ pub fn get_socket_path() -> PathBuf {
     PathBuf::from(xdg).join("reflex.sock")
 }
 
-async fn handle_client(stream: UnixStream, ctx: Arc<ServerContext>) {
+pub async fn process_transcript(raw_transcript: &str, ctx: &ServerContext) -> IpcResponse {
     let start_time = Instant::now();
-    let (reader, mut writer) = stream.into_split();
-    let mut buf_reader = BufReader::new(reader);
-    let mut line = String::new();
-
-    if buf_reader.read_line(&mut line).await.is_err() || line.trim().is_empty() {
-        let resp = IpcResponse {
+    let trimmed = raw_transcript.trim();
+    if trimmed.is_empty() {
+        return IpcResponse {
             status: "PassThrough".to_string(),
             reason: Some("EmptyInput".to_string()),
             action: None,
             clamped_to: None,
             duration_us: start_time.elapsed().as_micros(),
+        };
+    }
+
+    let normalized = normalize_transcript(trimmed);
+    let parsed = parse_action(&normalized);
+
+    let Some(action) = parsed else {
+        return IpcResponse {
+            status: "PassThrough".to_string(),
+            reason: Some("NoGrammarMatch".to_string()),
+            action: None,
+            clamped_to: None,
+            duration_us: start_time.elapsed().as_micros(),
+        };
+    };
+
+    execute_action(&action, ctx, start_time).await
+}
+
+async fn handle_client(stream: UnixStream, ctx: Arc<ServerContext>) {
+    let (reader, mut writer) = stream.into_split();
+    let mut buf_reader = BufReader::new(reader);
+    let mut line = String::new();
+
+    if buf_reader.read_line(&mut line).await.is_err() {
+        let resp = IpcResponse {
+            status: "PassThrough".to_string(),
+            reason: Some("EmptyInput".to_string()),
+            action: None,
+            clamped_to: None,
+            duration_us: 0,
         };
         let _ = writer
             .write_all(format!("{}\n", serde_json::to_string(&resp).unwrap()).as_bytes())
@@ -114,27 +142,7 @@ async fn handle_client(stream: UnixStream, ctx: Arc<ServerContext>) {
         return;
     }
 
-    let raw_transcript = line.trim();
-    let normalized = normalize_transcript(raw_transcript);
-    let parsed = parse_action(&normalized);
-
-    let Some(action) = parsed else {
-        // Unrecognized fast-path intent -> PassThrough to agy (exit code 2)
-        let resp = IpcResponse {
-            status: "PassThrough".to_string(),
-            reason: Some("NoGrammarMatch".to_string()),
-            action: None,
-            clamped_to: None,
-            duration_us: start_time.elapsed().as_micros(),
-        };
-        let _ = writer
-            .write_all(format!("{}\n", serde_json::to_string(&resp).unwrap()).as_bytes())
-            .await;
-        let _ = writer.flush().await;
-        return;
-    };
-
-    let response = execute_action(&action, &ctx, start_time).await;
+    let response = process_transcript(&line, &ctx).await;
     let _ = writer
         .write_all(format!("{}\n", serde_json::to_string(&response).unwrap()).as_bytes())
         .await;
