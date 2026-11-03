@@ -1,0 +1,114 @@
+[
+  {
+    "id": "open_app",
+    "title": "Open YouTube / App",
+    "command": "open youtube",
+    "category": "SYSTEM",
+    "description": "Single-instance aware: switches to app if running (<1ms), or launches detached .desktop entry",
+    "aliases": ["open up youtube", "launch code", "focus youtube", "switch to youtube", "go to antigravity", "open dolphin"]
+  },
+  {
+    "id": "close_named_app",
+    "title": "Close Named App",
+    "command": "close discord",
+    "category": "SYSTEM",
+    "description": "Resolve target window via AppRegistry and close it with safety guardrails",
+    "aliases": ["close spotify", "close dolphin", "kill youtube"]
+  },
+  {
+    "id": "screenshot_window",
+    "title": "Screenshot Active Window",
+    "command": "screenshot window",
+    "category": "SYSTEM",
+    "description": "Capture focused window bounding box directly to Wayland clipboard buffer and pictures via grim",
+    "aliases": ["screenshot", "screenshot this", "screenshot this window", "screen shot"]
+  },
+  {
+    "id": "screenshot_screen",
+    "title": "Full Screenshot",
+    "command": "screenshot screen",
+    "category": "SYSTEM",
+    "description": "Capture entire monitor output canvas to Wayland clipboard buffer",
+    "aliases": ["capture screen", "take screenshot", "full screenshot"]
+  },
+  {
+    "id": "screenshot_snip",
+    "title": "Snip Area (slurp)",
+    "command": "snip",
+    "category": "SYSTEM",
+    "description": "Launch slurp interactive selection box to snip custom desktop area",
+    "aliases": ["custom selection", "select area"]
+  },
+  {
+    "id": "screenshot_recapture",
+    "title": "Recapture Last Area",
+    "command": "recapture",
+    "category": "SYSTEM",
+    "description": "Re-execute screen snip using the most recent bounding box coordinates",
+    "aliases": ["screenshot again"]
+  },
+  {
+    "id": "open_terminal",
+    "title": "Open Terminal Here",
+    "command": "terminal",
+    "category": "SYSTEM",
+    "description": "Spawn kitty terminal directly in parent folder of selected items or active workspace",
+    "aliases": ["open in terminal", "open terminal here", "terminal here", "terminel", "tarminal", "termnl"]
+  },
+  {
+    "id": "type_clipboard",
+    "title": "Type Clipboard Buffer",
+    "command": "type clipboard",
+    "category": "SYSTEM",
+    "description": "Inject clipboard text into active window via wtype with 500-char safety ceiling and newline stripping",
+    "aliases": ["type it", "type that", "type buffer", "paste typing", "paste as typing", "type", "lib board", "libboard"]
+  },
+  {
+    "id": "clear_clipboard",
+    "title": "Clear Clipboard",
+    "command": "clear clipboard",
+    "category": "SYSTEM",
+    "description": "Empty the Wayland clipboard buffer via wl-copy --clear",
+    "aliases": ["empty clipboard", "clear buffer"]
+  },
+  {
+    "id": "strip_clipboard",
+    "title": "Strip Clipboard Formatting",
+    "command": "strip clipboard",
+    "category": "SYSTEM",
+    "description": "Strip rich HTML/RTF types, recopying buffer strictly as clean text/plain",
+    "aliases": ["strip clipboard formatting", "clean clipboard", "plain clipboard"]
+  },
+  {
+    "id": "scroll_down",
+    "title": "Scroll Down",
+    "command": "scroll down",
+    "category": "SYSTEM",
+    "description": "Dispatch downward page/container scrolling to active window (<15ms) without LLM",
+    "aliases": ["scroll", "page down", "scroll down 5"]
+  },
+  {
+    "id": "scroll_up",
+    "title": "Scroll Up",
+    "command": "scroll up",
+    "category": "SYSTEM",
+    "description": "Dispatch upward scrolling to active window (<15ms)",
+    "aliases": ["page up", "scroll up five lines"]
+  },
+  {
+    "id": "focus_search",
+    "title": "Focus Search Field",
+    "command": "focus search",
+    "category": "SYSTEM",
+    "description": "Query active window AT-SPI accessibility tree, fuzzy-ground name, and focus input field",
+    "aliases": ["focus search bar", "focus email", "focus input username"]
+  },
+  {
+    "id": "search_query",
+    "title": "Search For Query",
+    "command": "search for lo fi music",
+    "category": "SYSTEM",
+    "description": "One-shot macro: focus search bar, replace text, type query, and press Return in <200ms",
+    "aliases": ["search Adaalat", "search lo fi music"]
+  }
+]

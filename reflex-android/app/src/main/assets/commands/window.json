@@ -1,0 +1,106 @@
+[
+  {
+    "id": "focus_workspace_3",
+    "title": "Switch Workspace 3",
+    "command": "workspace 3",
+    "category": "WINDOW",
+    "description": "Switch active Hyprland workspace to workspace 3 instantly (<1ms)",
+    "aliases": ["go to workspace 3", "switch to workspace 3", "switch to 3", "workspace 1", "workspace 2", "workspace 4"]
+  },
+  {
+    "id": "move_workspace",
+    "title": "Move Window to Workspace 4",
+    "command": "move to 4",
+    "category": "WINDOW",
+    "description": "Move active window to target workspace without shifting user focus",
+    "aliases": ["move window to workspace 6", "move this window workspace 6", "move this to workspace 2"]
+  },
+  {
+    "id": "move_window_follow",
+    "title": "Move Window & Follow",
+    "command": "move to 6 and follow",
+    "category": "WINDOW",
+    "description": "Move active window to target workspace and switch user focus with it",
+    "aliases": ["move window to workspace 3 follow", "move and follow"]
+  },
+  {
+    "id": "move_youtube_workspace",
+    "title": "Move YouTube to Workspace 4",
+    "command": "move YouTube to 4",
+    "category": "WINDOW",
+    "description": "Resolve target app via 4-Tier AppRegistry and move its window to workspace 4",
+    "aliases": ["move Chrome to workspace 6", "move Spotify 2", "move WhatsApp to 5 and follow"]
+  },
+  {
+    "id": "focus_direction",
+    "title": "Focus Window Left",
+    "command": "focus left",
+    "category": "WINDOW",
+    "description": "Switch keyboard focus to adjacent tiled window in specified direction",
+    "aliases": ["focus right", "focus up", "focus down", "focus top", "focus bottom", "focus window left"]
+  },
+  {
+    "id": "swap_direction",
+    "title": "Swap Window Left",
+    "command": "move left",
+    "category": "WINDOW",
+    "description": "Swap active window position in tiling layout in specified direction (<1ms)",
+    "aliases": ["move right", "move up", "move down", "swap left", "swap right", "move window left"]
+  },
+  {
+    "id": "toggle_floating",
+    "title": "Toggle Floating",
+    "command": "toggle floating",
+    "category": "WINDOW",
+    "description": "Toggle active window between floating and tiling mode natively in Hyprland (<0.5ms)",
+    "aliases": ["float", "float window", "float it", "unfloat", "toggle float", "flot", "flote", "plot", "toggle plot", "toggle flot"]
+  },
+  {
+    "id": "toggle_pin",
+    "title": "Toggle Pin Window",
+    "command": "pin",
+    "category": "WINDOW",
+    "description": "Pin active floating window so it remains visible across all workspaces",
+    "aliases": ["pin window", "pin it", "toggle pin", "unpin"]
+  },
+  {
+    "id": "center_window",
+    "title": "Center Window",
+    "command": "center",
+    "category": "WINDOW",
+    "description": "Center active floating window on current monitor canvas",
+    "aliases": ["center window", "center it", "center active"]
+  },
+  {
+    "id": "toggle_split",
+    "title": "Toggle Split",
+    "command": "toggle split",
+    "category": "WINDOW",
+    "description": "Toggle Hyprland dwindle layout horizontal / vertical split orientation",
+    "aliases": ["change split", "switch split", "swap split"]
+  },
+  {
+    "id": "toggle_fullscreen",
+    "title": "Toggle Fullscreen",
+    "command": "fullscreen",
+    "category": "WINDOW",
+    "description": "Toggle active window fullscreen mode",
+    "aliases": ["toggle fullscreen", "maximize", "full screen"]
+  },
+  {
+    "id": "close_window",
+    "title": "Close Active Window",
+    "command": "close window",
+    "category": "WINDOW",
+    "description": "Close active window. If protected (kitty, brave, code, nvim), pins address and requires spoken confirm",
+    "aliases": ["close", "close it", "close this", "close the window", "close active", "close current", "kill it", "kill window"]
+  },
+  {
+    "id": "confirm_action",
+    "title": "Confirm Action",
+    "command": "confirm",
+    "category": "WINDOW",
+    "description": "Execute pending destructive action on pinned window address within 4.0s expiration",
+    "aliases": ["confirmed", "confirm it"]
+  }
+]

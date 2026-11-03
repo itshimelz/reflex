@@ -1,0 +1,114 @@
+[
+  {
+    "id": "volume_up",
+    "title": "Volume Up (+5%)",
+    "command": "volume up",
+    "category": "AUDIO",
+    "description": "Step default audio output sink volume up by +5%",
+    "aliases": ["sound up", "louder", "turn it up", "turn sound up", "volume up by 10"]
+  },
+  {
+    "id": "volume_down",
+    "title": "Volume Down (-5%)",
+    "command": "volume down",
+    "category": "AUDIO",
+    "description": "Step default audio output sink volume down by -5%",
+    "aliases": ["sound down", "quieter", "softer", "turn it down", "turn sound down", "volume down by 10"]
+  },
+  {
+    "id": "sound_50",
+    "title": "Sound 50%",
+    "command": "sound 50",
+    "category": "AUDIO",
+    "description": "Set master audio output volume to exactly 50%",
+    "aliases": ["volume 50", "set sound to 50", "set volume to 50", "sound sound 50", "bolume 50"]
+  },
+  {
+    "id": "sound_75",
+    "title": "Sound 75%",
+    "command": "sound 75",
+    "category": "AUDIO",
+    "description": "Set master audio output volume to 75%",
+    "aliases": ["volume 75", "sound sound 75", "set volume to 75"]
+  },
+  {
+    "id": "sound_100",
+    "title": "Sound 100%",
+    "command": "sound 100",
+    "category": "AUDIO",
+    "description": "Set master audio output volume to maximum (100%)",
+    "aliases": ["volume 100", "sound 100", "max volume", "full volume"]
+  },
+  {
+    "id": "mute",
+    "title": "Mute Output",
+    "command": "mute",
+    "category": "AUDIO",
+    "description": "Mute default audio sink output immediately without resetting level",
+    "aliases": ["mute audio", "silence", "quiet"]
+  },
+  {
+    "id": "unmute",
+    "title": "Unmute Output",
+    "command": "unmute",
+    "category": "AUDIO",
+    "description": "Unmute default audio sink output restoring previous playback level",
+    "aliases": ["unmute audio", "un-mute", "sound on"]
+  },
+  {
+    "id": "toggle_mute",
+    "title": "Toggle Output Mute",
+    "command": "toggle mute",
+    "category": "AUDIO",
+    "description": "Toggle default output sink mute and unmute state",
+    "aliases": ["toggle audio mute", "switch mute"]
+  },
+  {
+    "id": "toggle_mic",
+    "title": "Toggle Microphone",
+    "command": "toggle mic",
+    "category": "AUDIO",
+    "description": "Hardware-level microphone input stream mute and unmute toggle",
+    "aliases": ["mute mic", "unmute mic", "mike", "toggle mike"]
+  },
+  {
+    "id": "switch_audio",
+    "title": "Switch Audio Port",
+    "command": "switch audio",
+    "category": "AUDIO",
+    "description": "Cycle physical output port between Headphones and External Speakers",
+    "aliases": ["switch speaker", "toggle speaker", "toggle audio", "change speaker", "swap audio", "headphones", "switch to headphones", "switch to speaker", "speeker", "spkr"]
+  },
+  {
+    "id": "mute_brave",
+    "title": "Mute Brave",
+    "command": "mute brave",
+    "category": "AUDIO",
+    "description": "Mute background audio stream for Brave browser via PipeWire in <5ms",
+    "aliases": ["mute browser", "silence brave"]
+  },
+  {
+    "id": "unmute_brave",
+    "title": "Unmute Brave",
+    "command": "unmute brave",
+    "category": "AUDIO",
+    "description": "Unmute background audio stream for Brave browser without stealing window focus",
+    "aliases": ["unmute browser"]
+  },
+  {
+    "id": "mute_spotify",
+    "title": "Mute Spotify",
+    "command": "mute spotify",
+    "category": "AUDIO",
+    "description": "Mute Spotify audio stream without shifting window focus",
+    "aliases": ["silence spotify"]
+  },
+  {
+    "id": "unmute_spotify",
+    "title": "Unmute Spotify",
+    "command": "unmute spotify",
+    "category": "AUDIO",
+    "description": "Unmute Spotify audio stream",
+    "aliases": ["spotify unmute"]
+  }
+]

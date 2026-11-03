@@ -1,0 +1,34 @@
+[
+  {
+    "id": "strip_metadata",
+    "title": "Strip Metadata / EXIF",
+    "command": "strip metadata",
+    "category": "METADATA",
+    "description": "Privacy cleaner: strips EXIF GPS/camera data from images and ID3 tags from media via FFmpeg",
+    "aliases": ["clean metadata", "metadata", "strip exif", "remove metadata", "strip tags", "meta data", "strip it", "strip metadata strip metadata"]
+  },
+  {
+    "id": "sha256_checksum",
+    "title": "SHA-256 Checksum",
+    "command": "sha256",
+    "category": "METADATA",
+    "description": "Calculate cryptographic SHA-256 hash for selected items and copy formatted list to clipboard",
+    "aliases": ["checksum", "checksum this", "sha 256", "calculate checksum", "hash file", "check sum", "shah 256", "shah256", "sha two fifty six"]
+  },
+  {
+    "id": "copy_full_path",
+    "title": "Copy Full Path",
+    "command": "full path",
+    "category": "METADATA",
+    "description": "Join canonical absolute filesystem paths of selected items with newlines into clipboard",
+    "aliases": ["copy path", "copy the path", "copy full path", "copy file path", "copy location", "file path", "copy pass", "copy pat", "copy pash", "paath", "full path full path"]
+  },
+  {
+    "id": "copy_filename",
+    "title": "Copy Filename",
+    "command": "copy filename",
+    "category": "METADATA",
+    "description": "Join base filenames of selected items with newlines into system clipboard",
+    "aliases": ["copy file name", "copy name", "copy short path", "filename", "file name"]
+  }
+]

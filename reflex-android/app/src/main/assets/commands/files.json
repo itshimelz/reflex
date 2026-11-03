@@ -1,0 +1,122 @@
+[
+  {
+    "id": "zip_selected",
+    "title": "Zip Selected",
+    "command": "zip all",
+    "category": "FILES",
+    "description": "Compress highlighted file(s) or folders into archive.zip with multi-selection support",
+    "aliases": ["zip", "zip selected", "zip this", "zip file", "compress selected", "compress this", "zip them", "jip", "jeep", "gyp", "zyp", "zipp", "jib", "zip zip"]
+  },
+  {
+    "id": "unzip_selected",
+    "title": "Unzip Selected",
+    "command": "unzip all",
+    "category": "FILES",
+    "description": "Extract all highlighted archives into individual subfolders (<archive>/)",
+    "aliases": ["unzip", "unzip selected", "unzip this", "unzip file", "extract selected", "extract this", "unzip them all", "unjip", "anjip", "onjip", "unchip", "anchip", "onchip", "unjeep", "anjeep", "onzip", "extrac", "extrack", "unzip unzip"]
+  },
+  {
+    "id": "unzip_here",
+    "title": "Extract Here",
+    "command": "extract here",
+    "category": "FILES",
+    "description": "Extract archive contents directly into current folder without subdirectories",
+    "aliases": ["unzip here", "extract in place", "unzip in place"]
+  },
+  {
+    "id": "duplicate_selected",
+    "title": "Duplicate This",
+    "command": "duplicate this",
+    "category": "FILES",
+    "description": "Instantly clone selected file(s) into <name>_copy.<ext> with collision avoidance",
+    "aliases": ["duplicate", "duplicate file", "duplicate selected", "clone file", "make copy", "copy this", "duplicat", "dublicate", "doop", "dupe", "dupe it", "duplicate this duplicate this"]
+  },
+  {
+    "id": "trash_selected",
+    "title": "Trash This",
+    "command": "trash this",
+    "category": "FILES",
+    "description": "Safely move selected item(s) to system trash bin with Freedesktop .trashinfo restore support",
+    "aliases": ["trash", "trash selected", "trash file", "move to trash", "send to trash", "delete selected", "tresh", "trush", "treash", "trash it", "delit", "delete", "trash this trash this"]
+  },
+  {
+    "id": "move_downloads",
+    "title": "Move to Downloads",
+    "command": "move to downloads",
+    "category": "FILES",
+    "description": "Move highlighted file(s) directly into ~/Downloads with collision resolution",
+    "aliases": ["downloads", "send to downloads", "dawnload", "dawnloads", "down loads"]
+  },
+  {
+    "id": "move_documents",
+    "title": "Move to Documents",
+    "command": "send to documents",
+    "category": "FILES",
+    "description": "Move highlighted file(s) directly into ~/Documents directory",
+    "aliases": ["documents", "move to documents", "dokuments", "documants"]
+  },
+  {
+    "id": "move_desktop",
+    "title": "Move to Desktop",
+    "command": "move to desktop",
+    "category": "FILES",
+    "description": "Move highlighted file(s) to user Desktop folder",
+    "aliases": ["desktop", "send to desktop", "deskop", "desktp"]
+  },
+  {
+    "id": "clean_filename",
+    "title": "Clean Filename",
+    "command": "clean filename",
+    "category": "FILES",
+    "description": "Normalize filename: lowercase, replace spaces/special chars with hyphens, trim extra symbols",
+    "aliases": ["clean name", "clean", "sanitize filename", "slugify filename", "normalize filename", "klin", "klean", "clean it", "clean file name clean", "clean filename clean filename"]
+  },
+  {
+    "id": "timestamp_filename",
+    "title": "Timestamp Filename",
+    "command": "timestamp",
+    "category": "FILES",
+    "description": "Prepend ISO date (YYYY-MM-DD_<name>.<ext>) to all selected files",
+    "aliases": ["timestamp this", "timestamp file", "add timestamp", "datestamp this", "time stamp", "date stamp", "datestamp"]
+  },
+  {
+    "id": "rename_file",
+    "title": "Rename File",
+    "command": "rename this to backup",
+    "category": "FILES",
+    "description": "Rename selected file or sequentially suffix multiple selected files",
+    "aliases": ["rename to final_report", "rename file to backup", "re name"]
+  },
+  {
+    "id": "new_folder",
+    "title": "Create New Folder",
+    "command": "new folder",
+    "category": "FILES",
+    "description": "Create a new directory in active file manager folder (defaults to 'New Folder')",
+    "aliases": ["new folder projects", "create folder Assets", "make directory src", "polder", "pholder", "foldar"]
+  },
+  {
+    "id": "copy_contents",
+    "title": "Copy File Contents",
+    "command": "copy contents",
+    "category": "FILES",
+    "description": "Read UTF-8 text/code of selected files (<10MB) directly into system clipboard",
+    "aliases": ["copy content", "copy text", "copy code", "copy file text"]
+  },
+  {
+    "id": "save_clipboard_here",
+    "title": "Save Clipboard Here",
+    "command": "save clipboard here",
+    "category": "FILES",
+    "description": "Write clipboard bitmap to clipboard_<time>.png or text to clipboard_<time>.txt in active folder",
+    "aliases": ["save clipboard", "save buffer", "paste to file", "paste clipboard here"]
+  },
+  {
+    "id": "file_info",
+    "title": "File Information",
+    "command": "file info",
+    "category": "FILES",
+    "description": "Report formatted file sizes, permissions, or multi-selection combined tally",
+    "aliases": ["file size", "inspect file", "file details", "file properties"]
+  }
+]

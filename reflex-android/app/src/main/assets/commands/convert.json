@@ -1,0 +1,58 @@
+[
+  {
+    "id": "convert_webp",
+    "title": "Convert to WebP",
+    "command": "weppy",
+    "category": "CONVERT",
+    "description": "Batch transcode selected images to high-compression WebP format via ImageMagick",
+    "aliases": ["convert to webp", "webp", "make webp", "weppy", "webby", "webi", "wepy", "Weppy, Webby, Webby, Webby"]
+  },
+  {
+    "id": "convert_mp3",
+    "title": "Extract Audio to MP3",
+    "command": "convert to mp3",
+    "category": "CONVERT",
+    "description": "Rip and batch transcode audio track to 320kbps MP3 via FFmpeg libmp3lame",
+    "aliases": ["extract audio", "rip audio", "extract mp3", "mp3", "convert to wav", "convert to flac", "em pee three", "mp 3", "adio", "odiyo", "audo", "mp3 mp3"]
+  },
+  {
+    "id": "convert_png",
+    "title": "Convert to PNG",
+    "command": "convert to png",
+    "category": "CONVERT",
+    "description": "Batch convert selected images to lossless PNG format preserving transparency",
+    "aliases": ["png", "save as png", "pee en gee", "p n g", "png png"]
+  },
+  {
+    "id": "convert_jpg",
+    "title": "Convert to JPG",
+    "command": "convert to jpg",
+    "category": "CONVERT",
+    "description": "Optimize and convert graphics/photos to standard JPEG format",
+    "aliases": ["jpg", "convert to jpeg", "jay peg", "j p g", "jpg jpg"]
+  },
+  {
+    "id": "make_gif",
+    "title": "Make Animated GIF",
+    "command": "make gif",
+    "category": "CONVERT",
+    "description": "Generate 15fps palette-optimized animated GIF for each selected video container via FFmpeg",
+    "aliases": ["make a gif", "create gif", "convert to gif", "turn into gif", "jif", "giph", "geef"]
+  },
+  {
+    "id": "pdf_to_images",
+    "title": "Render PDF to Images",
+    "command": "pdf to images",
+    "category": "CONVERT",
+    "description": "Batch extract each page of selected PDF documents into 150 DPI PNG images via pdftoppm",
+    "aliases": ["convert pdf to images", "extract pdf pages", "pdf pages to images", "pdf", "pee dee eff", "p d f", "pdf pdf"]
+  },
+  {
+    "id": "copy_image_clipboard",
+    "title": "Copy Image to Clipboard",
+    "command": "copy image",
+    "category": "CONVERT",
+    "description": "Read selected image file and stream PNG bitmap into wl-copy -t image/png via ImageMagick",
+    "aliases": ["copy picture", "copy photo", "copy image to clipboard"]
+  }
+]

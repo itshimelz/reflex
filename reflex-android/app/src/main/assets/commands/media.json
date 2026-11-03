@@ -1,0 +1,66 @@
+[
+  {
+    "id": "media_play",
+    "title": "Play / Resume",
+    "command": "play",
+    "category": "MEDIA",
+    "description": "Send MPRIS resume signal to all active desktop media players",
+    "aliases": ["resume", "unpause", "play music", "play song"]
+  },
+  {
+    "id": "media_pause",
+    "title": "Pause Media",
+    "command": "pause",
+    "category": "MEDIA",
+    "description": "Send immediate asynchronous pause signal over D-Bus to all active media players",
+    "aliases": ["paws", "stop", "pause music", "stop music", "pause video", "stop video", "stop song", "stop playback"]
+  },
+  {
+    "id": "media_toggle",
+    "title": "Toggle Play / Pause",
+    "command": "toggle play",
+    "category": "MEDIA",
+    "description": "Toggle media playback between playing and paused",
+    "aliases": ["toggle media", "play pause", "toggle playback"]
+  },
+  {
+    "id": "media_next",
+    "title": "Next Track",
+    "command": "next track",
+    "category": "MEDIA",
+    "description": "Skip to next audio or video track in playlist or queue",
+    "aliases": ["next", "skip", "next song"]
+  },
+  {
+    "id": "media_prev",
+    "title": "Previous Track",
+    "command": "previous track",
+    "category": "MEDIA",
+    "description": "Jump back to previous media track or start of current song",
+    "aliases": ["previous", "prev", "last song", "back song"]
+  },
+  {
+    "id": "media_replay",
+    "title": "Replay Track",
+    "command": "replay",
+    "category": "MEDIA",
+    "description": "Restart currently playing song or video track from beginning",
+    "aliases": ["restart song", "restart track"]
+  },
+  {
+    "id": "media_seek_fwd",
+    "title": "Seek Forward 10s",
+    "command": "seek forward 10 seconds",
+    "category": "MEDIA",
+    "description": "Fast forward playback position by 10 seconds",
+    "aliases": ["seek forward five", "forward 10s"]
+  },
+  {
+    "id": "media_seek_bwd",
+    "title": "Seek Backward 30s",
+    "command": "seek backward 30 seconds",
+    "category": "MEDIA",
+    "description": "Rewind playback position backward by 30 seconds",
+    "aliases": ["seek backward ten", "rewind 30s"]
+  }
+]

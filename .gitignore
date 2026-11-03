@@ -6,6 +6,7 @@
 # Documentation & internal markdown reports (all docs & reports ignored except README.md and COMMANDS.md)
 /docs/
 /.scratch/
+/scratch/
 *.md
 !README.md
 !COMMANDS.md
