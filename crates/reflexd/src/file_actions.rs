@@ -570,7 +570,7 @@ pub async fn trash_selected(paths: &[PathBuf]) -> Result<String, String> {
             .await
             .map_err(|e| format!("Failed to write trashinfo: {}", e))?;
 
-        if let Err(_) = tokio::fs::rename(p, &dest_path).await {
+        if tokio::fs::rename(p, &dest_path).await.is_err() {
             // Fallback for cross-device files
             if p.is_dir() {
                 let _ = tokio::process::Command::new("cp")
@@ -626,7 +626,7 @@ pub async fn move_to_directory(
             counter += 1;
         }
 
-        if let Err(_) = tokio::fs::rename(p, &dest_path).await {
+        if tokio::fs::rename(p, &dest_path).await.is_err() {
             // Cross-device fallback
             if p.is_dir() {
                 let _ = tokio::process::Command::new("cp")

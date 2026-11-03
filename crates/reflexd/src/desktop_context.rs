@@ -206,7 +206,7 @@ impl DesktopContext {
 
     /// One-shot search: focus search box, type query, and press Enter
     pub async fn search(&self, query: &str, app_class: Option<&str>) -> Result<String, String> {
-        let is_web = app_class.map_or(false, |a| {
+        let is_web = app_class.is_some_and(|a| {
             let al = a.to_lowercase();
             al.contains("brave")
                 || al.contains("chrome")
@@ -263,7 +263,7 @@ impl DesktopContext {
         let mut output = cmd.output().await.ok();
 
         // If app-specific snapshot failed, retry without --app (snapshot focused window)
-        if output.as_ref().map_or(true, |o| !o.status.success()) {
+        if output.as_ref().is_none_or(|o| !o.status.success()) {
             let mut fallback_cmd = Command::new("agent-desktop");
             fallback_cmd.args(["snapshot", "-i", "--compact"]);
             self.apply_bus_env(&mut fallback_cmd);
@@ -288,7 +288,7 @@ impl DesktopContext {
                 if let Some(score) = fuzzy_match_element(target, candidate_name) {
                     if best_match
                         .as_ref()
-                        .map_or(true, |(_, best_score)| score > *best_score)
+                        .is_none_or(|(_, best_score)| score > *best_score)
                     {
                         best_match = Some((el, score));
                     }
@@ -296,7 +296,7 @@ impl DesktopContext {
                     if let Some(score) = fuzzy_match_element(target, desc) {
                         if best_match
                             .as_ref()
-                            .map_or(true, |(_, best_score)| score > *best_score)
+                            .is_none_or(|(_, best_score)| score > *best_score)
                         {
                             best_match = Some((el, score));
                         }
@@ -330,7 +330,7 @@ impl DesktopContext {
         // use native web/desktop shortcuts for common intentions
         let target_lower = target.to_lowercase();
         if action == "focus" && (target_lower.contains("search") || target_lower.contains("find")) {
-            let is_web = app_class.map_or(false, |a| {
+            let is_web = app_class.is_some_and(|a| {
                 let al = a.to_lowercase();
                 al.contains("brave") || al.contains("chrome") || al.contains("firefox") || al.contains("youtube")
             });
