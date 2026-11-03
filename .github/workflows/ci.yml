@@ -15,10 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies (ALSA & pkg-config)
+      - name: Install system dependencies (ALSA, pkg-config, wtype)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
+          sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config wtype
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
