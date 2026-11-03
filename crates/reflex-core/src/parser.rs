@@ -784,6 +784,339 @@ pub fn parse_action(input: &str) -> Option<Action> {
         _ => {}
     }
 
+    // 2. Clipboard file operations
+    match clean.as_str() {
+        "copy path"
+        | "copy the path"
+        | "copy full path"
+        | "copy file path"
+        | "copy this path"
+        | "copy path of file"
+        | "copy location"
+        | "copy file location" => return Some(Action::File(FileAction::CopyPath { full: true })),
+
+        "copy filename"
+        | "copy file name"
+        | "copy name"
+        | "copy name of file"
+        | "copy short path" => return Some(Action::File(FileAction::CopyPath { full: false })),
+
+        "copy content"
+        | "copy contents"
+        | "copy file content"
+        | "copy file contents"
+        | "copy text"
+        | "copy file text"
+        | "copy code"
+        | "copy code of file"
+        | "copy this content"
+        | "copy this text" => return Some(Action::File(FileAction::CopyContents)),
+
+        "copy image"
+        | "copy image to clipboard"
+        | "copy picture"
+        | "copy photo"
+        | "copy this image"
+        | "copy image file" => return Some(Action::File(FileAction::CopyImage)),
+
+        "save clipboard"
+        | "save clipboard here"
+        | "save buffer"
+        | "save buffer here"
+        | "paste to file"
+        | "save clipboard to file"
+        | "paste clipboard here"
+        | "paste clipboard as file"
+        | "dump clipboard" => return Some(Action::File(FileAction::SaveClipboardHere)),
+
+        _ => {}
+    }
+
+    // 3. Organization & Trash
+    match clean.as_str() {
+        "duplicate"
+        | "duplicate file"
+        | "duplicate this"
+        | "duplicate this file"
+        | "duplicate selected"
+        | "duplicate selected file"
+        | "duplicate selected files"
+        | "clone file"
+        | "clone this"
+        | "clone selected"
+        | "make copy"
+        | "make a copy" => return Some(Action::File(FileAction::DuplicateSelected)),
+
+        "trash"
+        | "trash selected"
+        | "trash selected file"
+        | "trash selected files"
+        | "trash this"
+        | "trash this file"
+        | "trash it"
+        | "trash them"
+        | "trash all"
+        | "trash them all"
+        | "move to trash"
+        | "send to trash"
+        | "delete selected"
+        | "delete selected file"
+        | "delete selected files"
+        | "delete this file"
+        | "delete file"
+        | "delete files" => return Some(Action::File(FileAction::TrashSelected)),
+
+        _ => {}
+    }
+
+    // Move to directory
+    let parse_target_dir = |s: &str| -> Option<TargetDirectory> {
+        let t = s.trim().trim_start_matches("to ").trim();
+        match t {
+            "downloads" | "download" => Some(TargetDirectory::Downloads),
+            "documents" | "docs" => Some(TargetDirectory::Documents),
+            "desktop" => Some(TargetDirectory::Desktop),
+            "pictures" | "photos" | "pics" => Some(TargetDirectory::Pictures),
+            "videos" | "movies" => Some(TargetDirectory::Videos),
+            "music" | "songs" => Some(TargetDirectory::Music),
+            _ => None,
+        }
+    };
+
+    if let Some(rest) = clean
+        .strip_prefix("move to ")
+        .or_else(|| clean.strip_prefix("send to "))
+        .or_else(|| clean.strip_prefix("move file to "))
+        .or_else(|| clean.strip_prefix("move selected to "))
+        .or_else(|| clean.strip_prefix("move this to "))
+    {
+        if let Some(dir) = parse_target_dir(rest) {
+            return Some(Action::File(FileAction::MoveToDirectory(dir)));
+        }
+    } else if let Some(rest) = clean.strip_prefix("move ") {
+        if let Some(dir) = parse_target_dir(rest) {
+            return Some(Action::File(FileAction::MoveToDirectory(dir)));
+        }
+    }
+
+    // New folder
+    if clean == "new folder" || clean == "create folder" || clean == "make folder" {
+        return Some(Action::File(FileAction::NewFolder {
+            name: "New Folder".to_string(),
+        }));
+    }
+    if let Some(rest) = clean
+        .strip_prefix("new folder ")
+        .or_else(|| clean.strip_prefix("create folder "))
+        .or_else(|| clean.strip_prefix("make folder "))
+        .or_else(|| clean.strip_prefix("new directory "))
+        .or_else(|| clean.strip_prefix("create directory "))
+        .or_else(|| clean.strip_prefix("mkdir "))
+    {
+        let name = rest.trim();
+        if !name.is_empty() {
+            return Some(Action::File(FileAction::NewFolder {
+                name: name.to_string(),
+            }));
+        }
+    }
+
+    // Rename
+    if let Some(rest) = clean
+        .strip_prefix("rename to ")
+        .or_else(|| clean.strip_prefix("rename this to "))
+        .or_else(|| clean.strip_prefix("rename file to "))
+        .or_else(|| clean.strip_prefix("rename selected to "))
+    {
+        let name = rest.trim();
+        if !name.is_empty() {
+            return Some(Action::File(FileAction::RenameSelected {
+                new_name: name.to_string(),
+            }));
+        }
+    }
+
+    // Timestamp & Sanitizing & Metadata
+    match clean.as_str() {
+        "timestamp"
+        | "timestamp this"
+        | "timestamp file"
+        | "timestamp selected"
+        | "add timestamp"
+        | "prepend timestamp"
+        | "timestamp filename"
+        | "datestamp"
+        | "datestamp this"
+        | "datestamp file" => return Some(Action::File(FileAction::TimestampSelected)),
+
+        "clean filename"
+        | "clean name"
+        | "clean file name"
+        | "sanitize filename"
+        | "sanitize file name"
+        | "slugify filename"
+        | "normalize filename"
+        | "clean this" => return Some(Action::File(FileAction::CleanFilename)),
+
+        "strip metadata"
+        | "clean metadata"
+        | "remove metadata"
+        | "strip exif"
+        | "remove exif"
+        | "strip exif data"
+        | "strip tags"
+        | "remove tags" => return Some(Action::File(FileAction::StripMetadata)),
+
+        _ => {}
+    }
+
+    // Media & Document conversions
+    if clean == "extract audio"
+        || clean == "rip audio"
+        || clean == "extract sound"
+        || clean == "get audio"
+        || clean == "convert to mp3"
+        || clean == "extract to mp3"
+        || clean == "extract mp3"
+        || clean == "save as mp3"
+        || clean == "make mp3"
+        || clean == "to mp3"
+    {
+        return Some(Action::File(FileAction::ExtractAudio {
+            format: "mp3".to_string(),
+        }));
+    }
+    if clean == "convert to wav"
+        || clean == "extract to wav"
+        || clean == "extract wav"
+        || clean == "save as wav"
+        || clean == "make wav"
+        || clean == "to wav"
+    {
+        return Some(Action::File(FileAction::ExtractAudio {
+            format: "wav".to_string(),
+        }));
+    }
+    if clean == "convert to flac"
+        || clean == "extract to flac"
+        || clean == "extract flac"
+        || clean == "save as flac"
+        || clean == "make flac"
+        || clean == "to flac"
+    {
+        return Some(Action::File(FileAction::ExtractAudio {
+            format: "flac".to_string(),
+        }));
+    }
+    if clean == "convert to m4a"
+        || clean == "extract to m4a"
+        || clean == "extract m4a"
+        || clean == "save as m4a"
+        || clean == "make m4a"
+        || clean == "to m4a"
+    {
+        return Some(Action::File(FileAction::ExtractAudio {
+            format: "m4a".to_string(),
+        }));
+    }
+
+    // Image conversions
+    if clean == "convert to png"
+        || clean == "make png"
+        || clean == "save as png"
+        || clean == "convert image to png"
+        || clean == "to png"
+    {
+        return Some(Action::File(FileAction::ConvertImage {
+            format: "png".to_string(),
+        }));
+    }
+    if clean == "convert to jpg"
+        || clean == "convert to jpeg"
+        || clean == "make jpg"
+        || clean == "save as jpg"
+        || clean == "convert image to jpg"
+        || clean == "to jpg"
+    {
+        return Some(Action::File(FileAction::ConvertImage {
+            format: "jpg".to_string(),
+        }));
+    }
+    if clean == "convert to webp"
+        || clean == "make webp"
+        || clean == "save as webp"
+        || clean == "convert image to webp"
+        || clean == "to webp"
+    {
+        return Some(Action::File(FileAction::ConvertImage {
+            format: "webp".to_string(),
+        }));
+    }
+    if clean == "convert to ico"
+        || clean == "make ico"
+        || clean == "save as ico"
+        || clean == "to ico"
+    {
+        return Some(Action::File(FileAction::ConvertImage {
+            format: "ico".to_string(),
+        }));
+    }
+
+    // GIF & PDF
+    match clean.as_str() {
+        "make gif"
+        | "make a gif"
+        | "create gif"
+        | "convert to gif"
+        | "turn into gif"
+        | "generate gif"
+        | "save as gif"
+        | "to gif" => return Some(Action::File(FileAction::MakeGif)),
+
+        "pdf to images"
+        | "convert pdf to images"
+        | "extract pdf pages"
+        | "pdf pages to images"
+        | "render pdf to images"
+        | "pdf to png"
+        | "pdf to pngs"
+        | "extract pdf" => return Some(Action::File(FileAction::PdfToImages)),
+
+        _ => {}
+    }
+
+    // Inspection & Terminal
+    match clean.as_str() {
+        "file info"
+        | "show file info"
+        | "file size"
+        | "inspect file"
+        | "file details"
+        | "file properties"
+        | "properties of file" => return Some(Action::File(FileAction::FileInfo)),
+
+        "checksum"
+        | "checksum this"
+        | "checksum file"
+        | "checksum selected"
+        | "calculate checksum"
+        | "sha256"
+        | "sha256 this"
+        | "sha256 checksum"
+        | "hash file"
+        | "hash this" => return Some(Action::File(FileAction::ChecksumSelected)),
+
+        "open in terminal"
+        | "open terminal here"
+        | "terminal here"
+        | "open folder in terminal"
+        | "terminal in this folder"
+        | "open path in terminal"
+        | "open directory in terminal" => return Some(Action::File(FileAction::OpenInTerminal)),
+
+        _ => {}
+    }
+
     // 7. Workspace focus: "workspace 3", "go to workspace 5", "switch to 4"
     let ws_prefixes = [
         "workspace",

@@ -111,12 +111,51 @@ pub enum GuiAction {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TargetDirectory {
+    Downloads,
+    Documents,
+    Desktop,
+    Pictures,
+    Videos,
+    Music,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileAction {
     ZipSelected,
     UnzipSelected {
         into_subfolder: bool,
     },
+    CopyPath {
+        full: bool,
+    },
+    CopyContents,
+    CopyImage,
+    SaveClipboardHere,
+    DuplicateSelected,
+    TrashSelected,
+    MoveToDirectory(TargetDirectory),
+    NewFolder {
+        name: String,
+    },
+    RenameSelected {
+        new_name: String,
+    },
+    TimestampSelected,
+    CleanFilename,
+    StripMetadata,
+    ExtractAudio {
+        format: String,
+    },
+    ConvertImage {
+        format: String,
+    },
+    MakeGif,
+    PdfToImages,
+    FileInfo,
+    ChecksumSelected,
+    OpenInTerminal,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

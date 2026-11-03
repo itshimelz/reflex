@@ -1021,126 +1021,138 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                 }
             }
         },
-        Action::File(file_action) => match file_action {
-            FileAction::ZipSelected => {
-                match crate::file_actions::resolve_selected_files().await {
-                    Ok(paths) => match crate::file_actions::zip_selected(&paths).await {
-                        Ok(msg) => {
-                            ctx.audio.play_earcon(EarconKind::Success).await;
-                            ctx.hud.emit(
-                                HudEvent::new(
-                                    HudIcon::Check,
-                                    "Zipped",
-                                    HudTone::Emerald,
-                                )
-                                .with_detail(&msg),
-                            );
-                            IpcResponse {
-                                status: "Success".to_string(),
-                                reason: None,
-                                action: Some(msg),
-                                clamped_to: None,
-                                duration_us: start_time.elapsed().as_micros(),
+        Action::File(file_action) => {
+            let res = match file_action {
+                FileAction::SaveClipboardHere => {
+                    let paths = crate::file_actions::resolve_selected_files().await.unwrap_or_default();
+                    crate::file_actions::save_clipboard_here(&paths).await
+                        .map(|msg| (HudIcon::Clipboard, "Saved Clipboard", HudTone::Emerald, msg))
+                }
+                FileAction::NewFolder { name } => {
+                    let paths = crate::file_actions::resolve_selected_files().await.unwrap_or_default();
+                    crate::file_actions::new_folder(&paths, name).await
+                        .map(|msg| (HudIcon::Layers, "New Folder", HudTone::Emerald, msg))
+                }
+                FileAction::OpenInTerminal => {
+                    let paths = crate::file_actions::resolve_selected_files().await.unwrap_or_default();
+                    crate::file_actions::open_in_terminal(&paths).await
+                        .map(|msg| (HudIcon::Zap, "Terminal Opened", HudTone::Cyan, msg))
+                }
+                _ => {
+                    match crate::file_actions::resolve_selected_files().await {
+                        Ok(paths) => match file_action {
+                            FileAction::ZipSelected => {
+                                crate::file_actions::zip_selected(&paths).await
+                                    .map(|msg| (HudIcon::Check, "Zipped", HudTone::Emerald, msg))
                             }
-                        }
-                        Err(e) => {
-                            ctx.audio.play_earcon(EarconKind::Error).await;
-                            ctx.hud.emit(
-                                HudEvent::new(
-                                    HudIcon::AlertTriangle,
-                                    "Zip Failed",
-                                    HudTone::Amber,
-                                )
-                                .with_detail(&e),
-                            );
-                            IpcResponse {
-                                status: "Error".to_string(),
-                                reason: Some(e),
-                                action: Some("ZipFailed".to_string()),
-                                clamped_to: None,
-                                duration_us: start_time.elapsed().as_micros(),
+                            FileAction::UnzipSelected { into_subfolder } => {
+                                crate::file_actions::unzip_selected(&paths, *into_subfolder).await
+                                    .map(|msg| (HudIcon::Check, "Extracted", HudTone::Cyan, msg))
                             }
-                        }
-                    },
-                    Err(e) => {
-                        ctx.audio.play_earcon(EarconKind::Error).await;
-                        ctx.hud.emit(
-                            HudEvent::new(
-                                HudIcon::AlertTriangle,
-                                "Selection Error",
-                                HudTone::Amber,
-                            )
-                            .with_detail(&e),
-                        );
-                        IpcResponse {
-                            status: "Error".to_string(),
-                            reason: Some(e),
-                            action: Some("ResolveFailed".to_string()),
-                            clamped_to: None,
-                            duration_us: start_time.elapsed().as_micros(),
-                        }
+                            FileAction::CopyPath { full } => {
+                                crate::file_actions::copy_path(&paths, *full).await
+                                    .map(|msg| (HudIcon::Clipboard, "Copied Path", HudTone::Emerald, msg))
+                            }
+                            FileAction::CopyContents => {
+                                crate::file_actions::copy_contents(&paths).await
+                                    .map(|msg| (HudIcon::Clipboard, "Copied Content", HudTone::Emerald, msg))
+                            }
+                            FileAction::CopyImage => {
+                                crate::file_actions::copy_image(&paths).await
+                                    .map(|msg| (HudIcon::Camera, "Copied Image", HudTone::Emerald, msg))
+                            }
+                            FileAction::DuplicateSelected => {
+                                crate::file_actions::duplicate_selected(&paths).await
+                                    .map(|msg| (HudIcon::Layers, "Duplicated", HudTone::Emerald, msg))
+                            }
+                            FileAction::TrashSelected => {
+                                crate::file_actions::trash_selected(&paths).await
+                                    .map(|msg| (HudIcon::AlertTriangle, "Trashed", HudTone::Amber, msg))
+                            }
+                            FileAction::MoveToDirectory(dir) => {
+                                crate::file_actions::move_to_directory(&paths, *dir).await
+                                    .map(|msg| (HudIcon::Move, "Moved", HudTone::Cyan, msg))
+                            }
+                            FileAction::RenameSelected { new_name } => {
+                                crate::file_actions::rename_selected(&paths, new_name).await
+                                    .map(|msg| (HudIcon::Layers, "Renamed", HudTone::Emerald, msg))
+                            }
+                            FileAction::TimestampSelected => {
+                                crate::file_actions::timestamp_selected(&paths).await
+                                    .map(|msg| (HudIcon::Check, "Timestamped", HudTone::Emerald, msg))
+                            }
+                            FileAction::CleanFilename => {
+                                crate::file_actions::clean_filename(&paths).await
+                                    .map(|msg| (HudIcon::Check, "Cleaned Name", HudTone::Emerald, msg))
+                            }
+                            FileAction::StripMetadata => {
+                                crate::file_actions::strip_metadata(&paths).await
+                                    .map(|msg| (HudIcon::ShieldAlert, "Metadata Stripped", HudTone::Emerald, msg))
+                            }
+                            FileAction::ExtractAudio { format } => {
+                                crate::file_actions::extract_audio(&paths, format).await
+                                    .map(|msg| (HudIcon::Speaker, "Audio Extracted", HudTone::Emerald, msg))
+                            }
+                            FileAction::ConvertImage { format } => {
+                                crate::file_actions::convert_image(&paths, format).await
+                                    .map(|msg| (HudIcon::Camera, "Image Converted", HudTone::Emerald, msg))
+                            }
+                            FileAction::MakeGif => {
+                                crate::file_actions::make_gif(&paths).await
+                                    .map(|msg| (HudIcon::Camera, "GIF Created", HudTone::Emerald, msg))
+                            }
+                            FileAction::PdfToImages => {
+                                crate::file_actions::pdf_to_images(&paths).await
+                                    .map(|msg| (HudIcon::Camera, "PDF Rendered", HudTone::Emerald, msg))
+                            }
+                            FileAction::FileInfo => {
+                                crate::file_actions::file_info(&paths).await
+                                    .map(|msg| (HudIcon::Zap, "File Info", HudTone::Cyan, msg))
+                            }
+                            FileAction::ChecksumSelected => {
+                                crate::file_actions::checksum_selected(&paths).await
+                                    .map(|msg| (HudIcon::Lock, "Checksum Copied", HudTone::Emerald, msg))
+                            }
+                            FileAction::SaveClipboardHere
+                            | FileAction::NewFolder { .. }
+                            | FileAction::OpenInTerminal => unreachable!(),
+                        },
+                        Err(e) => Err(e),
                     }
                 }
-            }
-            FileAction::UnzipSelected { into_subfolder } => {
-                match crate::file_actions::resolve_selected_files().await {
-                    Ok(paths) => {
-                        match crate::file_actions::unzip_selected(&paths, *into_subfolder).await {
-                            Ok(msg) => {
-                                ctx.audio.play_earcon(EarconKind::Success).await;
-                                ctx.hud.emit(
-                                    HudEvent::new(
-                                        HudIcon::Check,
-                                        "Extracted",
-                                        HudTone::Cyan,
-                                    )
-                                    .with_detail(&msg),
-                                );
-                                IpcResponse {
-                                    status: "Success".to_string(),
-                                    reason: None,
-                                    action: Some(msg),
-                                    clamped_to: None,
-                                    duration_us: start_time.elapsed().as_micros(),
-                                }
-                            }
-                            Err(e) => {
-                                ctx.audio.play_earcon(EarconKind::Error).await;
-                                ctx.hud.emit(
-                                    HudEvent::new(
-                                        HudIcon::AlertTriangle,
-                                        "Extract Failed",
-                                        HudTone::Amber,
-                                    )
-                                    .with_detail(&e),
-                                );
-                                IpcResponse {
-                                    status: "Error".to_string(),
-                                    reason: Some(e),
-                                    action: Some("UnzipFailed".to_string()),
-                                    clamped_to: None,
-                                    duration_us: start_time.elapsed().as_micros(),
-                                }
-                            }
-                        }
+            };
+
+            match res {
+                Ok((icon, title, tone, msg)) => {
+                    ctx.audio.play_earcon(EarconKind::Success).await;
+                    ctx.hud.emit(
+                        HudEvent::new(icon, title, tone)
+                            .with_detail(&msg),
+                    );
+                    IpcResponse {
+                        status: "Success".to_string(),
+                        reason: None,
+                        action: Some(msg),
+                        clamped_to: None,
+                        duration_us: start_time.elapsed().as_micros(),
                     }
-                    Err(e) => {
-                        ctx.audio.play_earcon(EarconKind::Error).await;
-                        ctx.hud.emit(
-                            HudEvent::new(
-                                HudIcon::AlertTriangle,
-                                "Selection Error",
-                                HudTone::Amber,
-                            )
-                            .with_detail(&e),
-                        );
-                        IpcResponse {
-                            status: "Error".to_string(),
-                            reason: Some(e),
-                            action: Some("ResolveFailed".to_string()),
-                            clamped_to: None,
-                            duration_us: start_time.elapsed().as_micros(),
-                        }
+                }
+                Err(e) => {
+                    ctx.audio.play_earcon(EarconKind::Error).await;
+                    ctx.hud.emit(
+                        HudEvent::new(
+                            HudIcon::AlertTriangle,
+                            "File Action Failed",
+                            HudTone::Amber,
+                        )
+                        .with_detail(&e),
+                    );
+                    IpcResponse {
+                        status: "Error".to_string(),
+                        reason: Some(e),
+                        action: Some("FileActionFailed".to_string()),
+                        clamped_to: None,
+                        duration_us: start_time.elapsed().as_micros(),
                     }
                 }
             }

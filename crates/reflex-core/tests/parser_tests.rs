@@ -823,6 +823,205 @@ fn test_file_archive_commands() {
 }
 
 #[test]
+fn test_advanced_file_operations() {
+    // Clipboard file ops
+    assert_eq!(
+        parse_action("copy path"),
+        Some(Action::File(FileAction::CopyPath { full: true }))
+    );
+    assert_eq!(
+        parse_action("copy full path"),
+        Some(Action::File(FileAction::CopyPath { full: true }))
+    );
+    assert_eq!(
+        parse_action("copy filename"),
+        Some(Action::File(FileAction::CopyPath { full: false }))
+    );
+    assert_eq!(
+        parse_action("copy contents"),
+        Some(Action::File(FileAction::CopyContents))
+    );
+    assert_eq!(
+        parse_action("copy text"),
+        Some(Action::File(FileAction::CopyContents))
+    );
+    assert_eq!(
+        parse_action("copy code"),
+        Some(Action::File(FileAction::CopyContents))
+    );
+    assert_eq!(
+        parse_action("copy image"),
+        Some(Action::File(FileAction::CopyImage))
+    );
+    assert_eq!(
+        parse_action("save clipboard here"),
+        Some(Action::File(FileAction::SaveClipboardHere))
+    );
+    assert_eq!(
+        parse_action("paste to file"),
+        Some(Action::File(FileAction::SaveClipboardHere))
+    );
+
+    // Organization & Trash
+    assert_eq!(
+        parse_action("duplicate selected"),
+        Some(Action::File(FileAction::DuplicateSelected))
+    );
+    assert_eq!(
+        parse_action("duplicate this"),
+        Some(Action::File(FileAction::DuplicateSelected))
+    );
+    assert_eq!(
+        parse_action("clone file"),
+        Some(Action::File(FileAction::DuplicateSelected))
+    );
+    assert_eq!(
+        parse_action("trash selected"),
+        Some(Action::File(FileAction::TrashSelected))
+    );
+    assert_eq!(
+        parse_action("move to trash"),
+        Some(Action::File(FileAction::TrashSelected))
+    );
+    assert_eq!(
+        parse_action("move to downloads"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Downloads)))
+    );
+    assert_eq!(
+        parse_action("send to documents"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Documents)))
+    );
+    assert_eq!(
+        parse_action("move to desktop"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Desktop)))
+    );
+    assert_eq!(
+        parse_action("move to pictures"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Pictures)))
+    );
+    assert_eq!(
+        parse_action("move to videos"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Videos)))
+    );
+    assert_eq!(
+        parse_action("move to music"),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Music)))
+    );
+
+    // Folder & Renaming
+    assert_eq!(
+        parse_action("new folder"),
+        Some(Action::File(FileAction::NewFolder {
+            name: "New Folder".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("new folder projects"),
+        Some(Action::File(FileAction::NewFolder {
+            name: "projects".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("create folder Assets"),
+        Some(Action::File(FileAction::NewFolder {
+            name: "assets".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("rename to final_report"),
+        Some(Action::File(FileAction::RenameSelected {
+            new_name: "final_report".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("timestamp this"),
+        Some(Action::File(FileAction::TimestampSelected))
+    );
+    assert_eq!(
+        parse_action("clean filename"),
+        Some(Action::File(FileAction::CleanFilename))
+    );
+    assert_eq!(
+        parse_action("strip metadata"),
+        Some(Action::File(FileAction::StripMetadata))
+    );
+
+    // Media & Docs
+    assert_eq!(
+        parse_action("extract audio"),
+        Some(Action::File(FileAction::ExtractAudio {
+            format: "mp3".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to mp3"),
+        Some(Action::File(FileAction::ExtractAudio {
+            format: "mp3".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to wav"),
+        Some(Action::File(FileAction::ExtractAudio {
+            format: "wav".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to flac"),
+        Some(Action::File(FileAction::ExtractAudio {
+            format: "flac".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to png"),
+        Some(Action::File(FileAction::ConvertImage {
+            format: "png".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to jpg"),
+        Some(Action::File(FileAction::ConvertImage {
+            format: "jpg".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("convert to webp"),
+        Some(Action::File(FileAction::ConvertImage {
+            format: "webp".to_string()
+        }))
+    );
+    assert_eq!(
+        parse_action("make gif"),
+        Some(Action::File(FileAction::MakeGif))
+    );
+    assert_eq!(
+        parse_action("pdf to images"),
+        Some(Action::File(FileAction::PdfToImages))
+    );
+
+    // Inspection & Terminal
+    assert_eq!(
+        parse_action("file info"),
+        Some(Action::File(FileAction::FileInfo))
+    );
+    assert_eq!(
+        parse_action("checksum this"),
+        Some(Action::File(FileAction::ChecksumSelected))
+    );
+    assert_eq!(
+        parse_action("sha256 this"),
+        Some(Action::File(FileAction::ChecksumSelected))
+    );
+    assert_eq!(
+        parse_action("open in terminal"),
+        Some(Action::File(FileAction::OpenInTerminal))
+    );
+    assert_eq!(
+        parse_action("terminal here"),
+        Some(Action::File(FileAction::OpenInTerminal))
+    );
+}
+
+#[test]
 fn test_unrecognized_returns_none() {
     assert_eq!(
         parse_action("find the latest receipt in Downloads and attach it in Slack"),

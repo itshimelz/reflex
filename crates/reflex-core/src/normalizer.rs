@@ -91,7 +91,37 @@ pub fn normalize_transcript(input: &str) -> String {
         .replace("an jeep", "unzip")
         .replace("un mute", "unmute")
         .replace("head phones", "headphones")
-        .replace("head phone", "headphones");
+        .replace("head phone", "headphones")
+        .replace("time stamp", "timestamp")
+        .replace("date stamp", "timestamp")
+        .replace("datestamp", "timestamp")
+        .replace("meta data", "metadata")
+        .replace("check sum", "checksum")
+        .replace("sha 256", "sha256")
+        .replace("sha two fifty six", "sha256")
+        .replace("down loads", "downloads")
+        .replace("down load", "downloads")
+        .replace("re name", "rename")
+        .replace("ri name", "rename")
+        .replace("dupe it", "duplicate this")
+        .replace("duplicate it", "duplicate this")
+        .replace("trash it", "trash this")
+        .replace("copy it", "copy this")
+        .replace("clean it", "clean filename")
+        .replace("sanitize it", "clean filename")
+        .replace("strip it", "strip metadata")
+        .replace("full pass", "full path")
+        .replace("full pat", "full path")
+        .replace("clip board", "clipboard")
+        .replace("em pee three", "mp3")
+        .replace("mp 3", "mp3")
+        .replace("pee en gee", "png")
+        .replace("p n g", "png")
+        .replace("jay peg", "jpg")
+        .replace("j p g", "jpg")
+        .replace("web p", "webp")
+        .replace("pee dee eff", "pdf")
+        .replace("p d f", "pdf");
 
     // Token-based phonetic / accent / homophone variations
     let mut words: Vec<String> = s.split_whitespace().map(|w| w.to_string()).collect();
@@ -109,6 +139,23 @@ pub fn normalize_transcript(input: &str) -> String {
             | "unjeep" | "anjeep" | "onjeep" | "onzip" => *word = "unzip".to_string(),
             "extrac" | "extrack" => *word = "extract".to_string(),
             "compres" => *word = "compress".to_string(),
+            "coppy" | "coppi" | "kopy" | "copee" | "copi" => *word = "copy".to_string(),
+            "pass" | "pat" | "pash" | "paath" => *word = "path".to_string(),
+            "tresh" | "trush" | "treash" | "trashed" => *word = "trash".to_string(),
+            "delit" | "dilit" | "delet" => *word = "delete".to_string(),
+            "duplicat" | "dublicate" | "dublicat" | "doop" | "dupe" => *word = "duplicate".to_string(),
+            "conbert" | "kanvert" | "canvert" => *word = "convert".to_string(),
+            "adio" | "odiyo" | "audo" => *word = "audio".to_string(),
+            "polder" | "pholder" | "foldar" => *word = "folder".to_string(),
+            "dawnload" | "dawnloads" | "download" => *word = "downloads".to_string(),
+            "dokuments" | "documants" | "docment" => *word = "documents".to_string(),
+            "deskop" | "desktp" => *word = "desktop".to_string(),
+            "pikchurs" | "piktures" | "photos" | "potos" => *word = "pictures".to_string(),
+            "imaje" | "imij" | "imege" => *word = "image".to_string(),
+            "imajes" | "imiges" | "imeges" => *word = "images".to_string(),
+            "jif" | "giph" | "geef" => *word = "gif".to_string(),
+            "terminel" | "tarminal" | "termnl" => *word = "terminal".to_string(),
+            "klin" | "klean" => *word = "clean".to_string(),
             _ => {}
         }
     }
@@ -122,6 +169,13 @@ pub fn normalize_transcript(input: &str) -> String {
                 || (last == "sound" && w == "sound")
                 || (last == "volume" && w == "volume")
                 || (last == "extract" && w == "extract")
+                || (last == "copy" && w == "copy")
+                || (last == "trash" && w == "trash")
+                || (last == "delete" && w == "delete")
+                || (last == "duplicate" && w == "duplicate")
+                || (last == "convert" && w == "convert")
+                || (last == "move" && w == "move")
+                || (last == "clean" && w == "clean")
             {
                 continue;
             }

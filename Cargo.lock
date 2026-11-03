@@ -1492,7 +1492,7 @@ dependencies = [
 
 [[package]]
 name = "reflex"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1501,7 +1501,7 @@ dependencies = [
 
 [[package]]
 name = "reflex-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "proptest",
  "serde",
@@ -1512,7 +1512,7 @@ dependencies = [
 
 [[package]]
 name = "reflex-hud"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "calloop",
  "fontdue",
@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "reflexd"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "reflex-core",
  "rodio",
