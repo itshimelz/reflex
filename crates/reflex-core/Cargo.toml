@@ -1,6 +1,6 @@
 [package]
 name = "reflex-core"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 authors = ["itshimelz"]
 description = "Deterministic AST, zero-alloc winnow parser, and guardrails for Reflex"

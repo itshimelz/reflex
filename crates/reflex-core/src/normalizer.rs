@@ -99,6 +99,8 @@ pub fn normalize_transcript(input: &str) -> String {
         .replace("check sum", "checksum")
         .replace("sha 256", "sha256")
         .replace("sha two fifty six", "sha256")
+        .replace("shah 256", "sha256")
+        .replace("shah256", "sha256")
         .replace("down loads", "downloads")
         .replace("down load", "downloads")
         .replace("re name", "rename")
@@ -107,11 +109,14 @@ pub fn normalize_transcript(input: &str) -> String {
         .replace("duplicate it", "duplicate this")
         .replace("trash it", "trash this")
         .replace("copy it", "copy this")
+        .replace("file name", "filename")
+        .replace("clean filename clean", "clean filename")
         .replace("clean it", "clean filename")
         .replace("sanitize it", "clean filename")
         .replace("strip it", "strip metadata")
-        .replace("full pass", "full path")
-        .replace("full pat", "full path")
+        .replace("lib board", "clipboard")
+        .replace("lip board", "clipboard")
+        .replace("clip bord", "clipboard")
         .replace("clip board", "clipboard")
         .replace("em pee three", "mp3")
         .replace("mp 3", "mp3")
@@ -126,41 +131,49 @@ pub fn normalize_transcript(input: &str) -> String {
     // Token-based phonetic / accent / homophone variations
     let mut words: Vec<String> = s.split_whitespace().map(|w| w.to_string()).collect();
     for word in &mut words {
-        match word.as_str() {
-            "paws" => *word = "pause".to_string(),
-            "mike" => *word = "mic".to_string(),
-            "togoli" | "togol" | "toggole" | "togle" | "togal" => *word = "toggle".to_string(),
-            "speeker" | "spkr" => *word = "speaker".to_string(),
-            "valum" | "valume" | "volum" | "bolume" => *word = "volume".to_string(),
-            "flot" | "flote" | "floot" => *word = "float".to_string(),
-            "floting" | "ploting" | "plotting" => *word = "floating".to_string(),
-            "jip" | "gyp" | "jeep" | "zyp" | "zep" | "zipp" | "jib" => *word = "zip".to_string(),
+        let clean = word.trim_matches(|c: char| c == ',' || c == '.' || c == ';' || c == '!');
+        let mapped = match clean {
+            "weppy" | "webby" | "webi" | "wepy" | "weby" | "web-p" => Some("webp"),
+            "paws" => Some("pause"),
+            "mike" => Some("mic"),
+            "togoli" | "togol" | "toggole" | "togle" | "togal" => Some("toggle"),
+            "speeker" | "spkr" => Some("speaker"),
+            "valum" | "valume" | "volum" | "bolume" => Some("volume"),
+            "flot" | "flote" | "floot" => Some("float"),
+            "floting" | "ploting" | "plotting" => Some("floating"),
+            "jip" | "gyp" | "jeep" | "zyp" | "zep" | "zipp" | "jib" => Some("zip"),
             "unjip" | "anjip" | "onjip" | "anjipp" | "onjipp" | "unchip" | "anchip" | "onchip"
-            | "unjeep" | "anjeep" | "onjeep" | "onzip" => *word = "unzip".to_string(),
-            "extrac" | "extrack" => *word = "extract".to_string(),
-            "compres" => *word = "compress".to_string(),
-            "coppy" | "coppi" | "kopy" | "copee" | "copi" => *word = "copy".to_string(),
-            "pass" | "pat" | "pash" | "paath" => *word = "path".to_string(),
-            "tresh" | "trush" | "treash" | "trashed" => *word = "trash".to_string(),
-            "delit" | "dilit" | "delet" => *word = "delete".to_string(),
-            "duplicat" | "dublicate" | "dublicat" | "doop" | "dupe" => *word = "duplicate".to_string(),
-            "conbert" | "kanvert" | "canvert" => *word = "convert".to_string(),
-            "adio" | "odiyo" | "audo" => *word = "audio".to_string(),
-            "polder" | "pholder" | "foldar" => *word = "folder".to_string(),
-            "dawnload" | "dawnloads" | "download" => *word = "downloads".to_string(),
-            "dokuments" | "documants" | "docment" => *word = "documents".to_string(),
-            "deskop" | "desktp" => *word = "desktop".to_string(),
-            "pikchurs" | "piktures" | "photos" | "potos" => *word = "pictures".to_string(),
-            "imaje" | "imij" | "imege" => *word = "image".to_string(),
-            "imajes" | "imiges" | "imeges" => *word = "images".to_string(),
-            "jif" | "giph" | "geef" => *word = "gif".to_string(),
-            "terminel" | "tarminal" | "termnl" => *word = "terminal".to_string(),
-            "klin" | "klean" => *word = "clean".to_string(),
-            _ => {}
+            | "unjeep" | "anjeep" | "onjeep" | "onzip" => Some("unzip"),
+            "extrac" | "extrack" => Some("extract"),
+            "compres" => Some("compress"),
+            "coppy" | "coppi" | "kopy" | "copee" | "copi" => Some("copy"),
+            "pass" | "pat" | "pash" | "paath" => Some("path"),
+            "tresh" | "trush" | "treash" | "trashed" => Some("trash"),
+            "delit" | "dilit" | "delet" => Some("delete"),
+            "duplicat" | "dublicate" | "dublicat" | "doop" | "dupe" => Some("duplicate"),
+            "conbert" | "kanvert" | "canvert" => Some("convert"),
+            "adio" | "odiyo" | "audo" => Some("audio"),
+            "polder" | "pholder" | "foldar" => Some("folder"),
+            "dawnload" | "dawnloads" | "download" => Some("downloads"),
+            "dokuments" | "documants" | "docment" => Some("documents"),
+            "deskop" | "desktp" => Some("desktop"),
+            "pikchurs" | "piktures" | "photos" | "potos" => Some("pictures"),
+            "vedio" | "vedios" | "vidio" | "vidios" => Some("videos"),
+            "imaje" | "imij" | "imege" => Some("image"),
+            "imajes" | "imiges" | "imeges" => Some("images"),
+            "jif" | "giph" | "geef" => Some("gif"),
+            "terminel" | "tarminal" | "termnl" => Some("terminal"),
+            "klin" | "klean" => Some("clean"),
+            "chexum" | "cheksum" | "shah256" => Some("checksum"),
+            "libboard" | "lipboard" | "clipbord" => Some("clipboard"),
+            _ => None,
+        };
+        if let Some(m) = mapped {
+            *word = m.to_string();
         }
     }
 
-    // Deduplicate consecutive repeated action tokens: ["zip", "zip"] -> ["zip"]
+    // 1. Deduplicate consecutive repeated action & keyword tokens
     let mut deduped_words: Vec<String> = Vec::with_capacity(words.len());
     for w in words {
         if let Some(last) = deduped_words.last() {
@@ -176,13 +189,76 @@ pub fn normalize_transcript(input: &str) -> String {
                 || (last == "convert" && w == "convert")
                 || (last == "move" && w == "move")
                 || (last == "clean" && w == "clean")
+                || (last == "webp" && w == "webp")
+                || (last == "mp3" && w == "mp3")
+                || (last == "png" && w == "png")
+                || (last == "jpg" && w == "jpg")
+                || (last == "pdf" && w == "pdf")
+                || (last == "gif" && w == "gif")
+                || (last == "terminal" && w == "terminal")
+                || (last == "downloads" && w == "downloads")
+                || (last == "documents" && w == "documents")
+                || (last == "desktop" && w == "desktop")
+                || (last == "pictures" && w == "pictures")
+                || (last == "videos" && w == "videos")
+                || (last == "music" && w == "music")
+                || (last == "filename" && w == "filename")
+                || (last == "metadata" && w == "metadata")
+                || (last == "checksum" && w == "checksum")
+                || (last == "timestamp" && w == "timestamp")
+                || (last == "path" && w == "path")
+                || (last == "folder" && w == "folder")
+                || (last == "clipboard" && w == "clipboard")
             {
                 continue;
             }
         }
         deduped_words.push(w);
     }
-    s = deduped_words.join(" ");
+
+    // 2. Deduplicate repeated multi-token phrases (e.g. "full path full path", "duplicate this duplicate this")
+    let mut phrase_deduped: Vec<String> = Vec::with_capacity(deduped_words.len());
+    let mut i = 0;
+    while i < deduped_words.len() {
+        // 3-word phrase repetition: [A, B, C, A, B, C]
+        if i + 5 < deduped_words.len()
+            && deduped_words[i] == deduped_words[i + 3]
+            && deduped_words[i + 1] == deduped_words[i + 4]
+            && deduped_words[i + 2] == deduped_words[i + 5]
+        {
+            phrase_deduped.push(deduped_words[i].clone());
+            phrase_deduped.push(deduped_words[i + 1].clone());
+            phrase_deduped.push(deduped_words[i + 2].clone());
+            i += 6;
+            while i + 2 < deduped_words.len()
+                && deduped_words[i] == phrase_deduped[phrase_deduped.len() - 3]
+                && deduped_words[i + 1] == phrase_deduped[phrase_deduped.len() - 2]
+                && deduped_words[i + 2] == phrase_deduped[phrase_deduped.len() - 1]
+            {
+                i += 3;
+            }
+            continue;
+        }
+        // 2-word phrase repetition: [A, B, A, B]
+        if i + 3 < deduped_words.len()
+            && deduped_words[i] == deduped_words[i + 2]
+            && deduped_words[i + 1] == deduped_words[i + 3]
+        {
+            phrase_deduped.push(deduped_words[i].clone());
+            phrase_deduped.push(deduped_words[i + 1].clone());
+            i += 4;
+            while i + 1 < deduped_words.len()
+                && deduped_words[i] == phrase_deduped[phrase_deduped.len() - 2]
+                && deduped_words[i + 1] == phrase_deduped[phrase_deduped.len() - 1]
+            {
+                i += 2;
+            }
+            continue;
+        }
+        phrase_deduped.push(deduped_words[i].clone());
+        i += 1;
+    }
+    s = phrase_deduped.join(" ");
 
     s
 }

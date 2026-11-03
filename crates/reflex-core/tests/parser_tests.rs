@@ -834,6 +834,14 @@ fn test_advanced_file_operations() {
         Some(Action::File(FileAction::CopyPath { full: true }))
     );
     assert_eq!(
+        parse_action("full path clipboard"),
+        Some(Action::File(FileAction::CopyPath { full: true }))
+    );
+    assert_eq!(
+        parse_action("path to clipboard"),
+        Some(Action::File(FileAction::CopyPath { full: true }))
+    );
+    assert_eq!(
         parse_action("copy filename"),
         Some(Action::File(FileAction::CopyPath { full: false }))
     );
@@ -1018,6 +1026,64 @@ fn test_advanced_file_operations() {
     assert_eq!(
         parse_action("terminal here"),
         Some(Action::File(FileAction::OpenInTerminal))
+    );
+
+    // User-reported mispronounced phrases & repetitions
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("save lib board here")),
+        Some(Action::File(FileAction::SaveClipboardHere))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("convert to Weppy, Webby, Webby, Webby")),
+        Some(Action::File(FileAction::ConvertImage { format: "webp".to_string() }))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("full path full path")),
+        Some(Action::File(FileAction::CopyPath { full: true }))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("convert to mp3 mp3")),
+        Some(Action::File(FileAction::ExtractAudio { format: "mp3".to_string() }))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("clean file name clean")),
+        Some(Action::File(FileAction::CleanFilename))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("duplicate this duplicate this")),
+        Some(Action::File(FileAction::DuplicateSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("trash this trash this")),
+        Some(Action::File(FileAction::TrashSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("copy this copy this")),
+        Some(Action::File(FileAction::DuplicateSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("strip metadata strip metadata")),
+        Some(Action::File(FileAction::StripMetadata))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("Timestamp")),
+        Some(Action::File(FileAction::TimestampSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("metadata")),
+        Some(Action::File(FileAction::StripMetadata))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("checksum")),
+        Some(Action::File(FileAction::ChecksumSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("SHA 256")),
+        Some(Action::File(FileAction::ChecksumSelected))
+    );
+    assert_eq!(
+        parse_action(&reflex_core::normalizer::normalize_transcript("downloads")),
+        Some(Action::File(FileAction::MoveToDirectory(TargetDirectory::Downloads)))
     );
 }
 

@@ -57,3 +57,25 @@ fn test_punctuation_and_whitespace_trimming() {
     assert_eq!(normalize_transcript("pause, please"), "pause, please"); // Preamble is prefix
     assert_eq!(normalize_transcript("workspace 4."), "workspace 4");
 }
+
+#[test]
+fn test_user_reported_file_mispronunciations_and_stutters() {
+    assert_eq!(normalize_transcript("lib board"), "clipboard");
+    assert_eq!(normalize_transcript("save lib board here"), "save clipboard here");
+    assert_eq!(normalize_transcript("Weppy, Webby, Webby, Webby"), "webp");
+    assert_eq!(normalize_transcript("convert to Weppy, Webby, Webby, Webby"), "convert to webp");
+    assert_eq!(normalize_transcript("full path full path"), "full path");
+    assert_eq!(normalize_transcript("mp3 mp3"), "mp3");
+    assert_eq!(normalize_transcript("convert to mp3 mp3"), "convert to mp3");
+    assert_eq!(normalize_transcript("clean file name clean"), "clean filename");
+    assert_eq!(normalize_transcript("duplicate this duplicate this"), "duplicate this");
+    assert_eq!(normalize_transcript("trash this trash this"), "trash this");
+    assert_eq!(normalize_transcript("copy this copy this"), "copy this");
+    assert_eq!(normalize_transcript("strip metadata strip metadata"), "strip metadata");
+    assert_eq!(normalize_transcript("Timestamp"), "timestamp");
+    assert_eq!(normalize_transcript("metadata"), "metadata");
+    assert_eq!(normalize_transcript("checksum"), "checksum");
+    assert_eq!(normalize_transcript("SHA 256"), "sha256");
+    assert_eq!(normalize_transcript("downloads"), "downloads");
+    assert_eq!(normalize_transcript("rename"), "rename");
+}

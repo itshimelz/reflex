@@ -793,13 +793,23 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "copy this path"
         | "copy path of file"
         | "copy location"
-        | "copy file location" => return Some(Action::File(FileAction::CopyPath { full: true })),
+        | "copy file location"
+        | "full path"
+        | "file path"
+        | "full path clipboard"
+        | "path clipboard"
+        | "path to clipboard"
+        | "full path to clipboard"
+        | "copy path to clipboard"
+        | "copy full path to clipboard"
+        | "copy path clipboard" => return Some(Action::File(FileAction::CopyPath { full: true })),
 
         "copy filename"
         | "copy file name"
         | "copy name"
         | "copy name of file"
-        | "copy short path" => return Some(Action::File(FileAction::CopyPath { full: false })),
+        | "copy short path"
+        | "filename" => return Some(Action::File(FileAction::CopyPath { full: false })),
 
         "copy content"
         | "copy contents"
@@ -845,7 +855,11 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "clone this"
         | "clone selected"
         | "make copy"
-        | "make a copy" => return Some(Action::File(FileAction::DuplicateSelected)),
+        | "make a copy"
+        | "copy this"
+        | "copy this file"
+        | "copy file"
+        | "copy it" => return Some(Action::File(FileAction::DuplicateSelected)),
 
         "trash"
         | "trash selected"
@@ -897,6 +911,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         if let Some(dir) = parse_target_dir(rest) {
             return Some(Action::File(FileAction::MoveToDirectory(dir)));
         }
+    } else if let Some(dir) = parse_target_dir(&clean) {
+        return Some(Action::File(FileAction::MoveToDirectory(dir)));
     }
 
     // New folder
@@ -956,7 +972,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "sanitize file name"
         | "slugify filename"
         | "normalize filename"
-        | "clean this" => return Some(Action::File(FileAction::CleanFilename)),
+        | "clean this"
+        | "clean" => return Some(Action::File(FileAction::CleanFilename)),
 
         "strip metadata"
         | "clean metadata"
@@ -965,7 +982,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "remove exif"
         | "strip exif data"
         | "strip tags"
-        | "remove tags" => return Some(Action::File(FileAction::StripMetadata)),
+        | "remove tags"
+        | "metadata" => return Some(Action::File(FileAction::StripMetadata)),
 
         _ => {}
     }
@@ -981,6 +999,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as mp3"
         || clean == "make mp3"
         || clean == "to mp3"
+        || clean == "mp3"
     {
         return Some(Action::File(FileAction::ExtractAudio {
             format: "mp3".to_string(),
@@ -992,6 +1011,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as wav"
         || clean == "make wav"
         || clean == "to wav"
+        || clean == "wav"
     {
         return Some(Action::File(FileAction::ExtractAudio {
             format: "wav".to_string(),
@@ -1003,6 +1023,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as flac"
         || clean == "make flac"
         || clean == "to flac"
+        || clean == "flac"
     {
         return Some(Action::File(FileAction::ExtractAudio {
             format: "flac".to_string(),
@@ -1014,6 +1035,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as m4a"
         || clean == "make m4a"
         || clean == "to m4a"
+        || clean == "m4a"
     {
         return Some(Action::File(FileAction::ExtractAudio {
             format: "m4a".to_string(),
@@ -1026,6 +1048,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as png"
         || clean == "convert image to png"
         || clean == "to png"
+        || clean == "png"
     {
         return Some(Action::File(FileAction::ConvertImage {
             format: "png".to_string(),
@@ -1037,6 +1060,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as jpg"
         || clean == "convert image to jpg"
         || clean == "to jpg"
+        || clean == "jpg"
+        || clean == "jpeg"
     {
         return Some(Action::File(FileAction::ConvertImage {
             format: "jpg".to_string(),
@@ -1047,6 +1072,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "save as webp"
         || clean == "convert image to webp"
         || clean == "to webp"
+        || clean == "webp"
     {
         return Some(Action::File(FileAction::ConvertImage {
             format: "webp".to_string(),
@@ -1056,6 +1082,7 @@ pub fn parse_action(input: &str) -> Option<Action> {
         || clean == "make ico"
         || clean == "save as ico"
         || clean == "to ico"
+        || clean == "ico"
     {
         return Some(Action::File(FileAction::ConvertImage {
             format: "ico".to_string(),
@@ -1071,7 +1098,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "turn into gif"
         | "generate gif"
         | "save as gif"
-        | "to gif" => return Some(Action::File(FileAction::MakeGif)),
+        | "to gif"
+        | "gif" => return Some(Action::File(FileAction::MakeGif)),
 
         "pdf to images"
         | "convert pdf to images"
@@ -1080,7 +1108,8 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "render pdf to images"
         | "pdf to png"
         | "pdf to pngs"
-        | "extract pdf" => return Some(Action::File(FileAction::PdfToImages)),
+        | "extract pdf"
+        | "pdf" => return Some(Action::File(FileAction::PdfToImages)),
 
         _ => {}
     }

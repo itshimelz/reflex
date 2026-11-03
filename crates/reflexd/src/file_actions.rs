@@ -188,90 +188,99 @@ pub async fn zip_selected(paths: &[PathBuf]) -> Result<String, String> {
     }
 }
 
-/// Unzips or extracts the selected archive.
+/// Unzips or extracts the selected archives.
 pub async fn unzip_selected(paths: &[PathBuf], into_subfolder: bool) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No archive specified for extraction.".to_string());
     }
 
-    let archive = &paths[0];
-    if !archive.exists() {
-        return Err(format!("Archive not found: {}", archive.display()));
-    }
+    let mut count = 0;
+    let mut last_desc = String::new();
 
-    let parent = archive.parent().unwrap_or_else(|| Path::new("."));
-    let file_name = archive
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("archive");
-    let name_lower = file_name.to_lowercase();
-
-    let target_dir = if into_subfolder {
-        let stem = if name_lower.ends_with(".tar.gz") {
-            &file_name[..file_name.len() - 7]
-        } else if name_lower.ends_with(".tar.xz") || name_lower.ends_with(".tar.bz2") {
-            &file_name[..file_name.len() - 8]
-        } else {
-            archive.file_stem().and_then(|s| s.to_str()).unwrap_or("extracted")
-        };
-
-        let mut dir = parent.join(stem);
-        let mut counter = 1;
-        while dir.exists() {
-            dir = parent.join(format!("{}_{}", stem, counter));
-            counter += 1;
+    for archive in paths {
+        if !archive.exists() {
+            continue;
         }
-        std::fs::create_dir_all(&dir)
-            .map_err(|e| format!("Failed to create destination directory: {}", e))?;
-        dir
-    } else {
-        parent.to_path_buf()
-    };
 
-    if name_lower.ends_with(".zip") {
-        let output = tokio::process::Command::new("unzip")
-            .args(["-q", "-o", archive.to_str().unwrap(), "-d", target_dir.to_str().unwrap()])
-            .output()
-            .await
-            .map_err(|e| format!("Failed to spawn unzip: {}", e))?;
-
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("unzip error: {}", err.trim()));
-        }
-    } else if name_lower.ends_with(".tar.gz")
-        || name_lower.ends_with(".tgz")
-        || name_lower.ends_with(".tar.xz")
-        || name_lower.ends_with(".tar.bz2")
-        || name_lower.ends_with(".tar")
-    {
-        let output = tokio::process::Command::new("tar")
-            .args(["-xf", archive.to_str().unwrap(), "-C", target_dir.to_str().unwrap()])
-            .output()
-            .await
-            .map_err(|e| format!("Failed to spawn tar: {}", e))?;
-
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("tar error: {}", err.trim()));
-        }
-    } else {
-        return Err(format!(
-            "Unsupported archive format for '{}'. Expected .zip, .tar.gz, .tgz, .tar.xz",
-            file_name
-        ));
-    }
-
-    if into_subfolder {
-        let dest_name = target_dir
+        let parent = archive.parent().unwrap_or_else(|| Path::new("."));
+        let file_name = archive
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("folder");
-        info!("Extracted '{}' to '{}/'", file_name, dest_name);
-        Ok(format!("Extracted '{}' to '{}/'", file_name, dest_name))
+            .unwrap_or("archive");
+        let name_lower = file_name.to_lowercase();
+
+        let target_dir = if into_subfolder {
+            let stem = if name_lower.ends_with(".tar.gz") {
+                &file_name[..file_name.len() - 7]
+            } else if name_lower.ends_with(".tar.xz") || name_lower.ends_with(".tar.bz2") {
+                &file_name[..file_name.len() - 8]
+            } else {
+                archive.file_stem().and_then(|s| s.to_str()).unwrap_or("extracted")
+            };
+
+            let mut dir = parent.join(stem);
+            let mut counter = 1;
+            while dir.exists() {
+                dir = parent.join(format!("{}_{}", stem, counter));
+                counter += 1;
+            }
+            std::fs::create_dir_all(&dir)
+                .map_err(|e| format!("Failed to create destination directory: {}", e))?;
+            dir
+        } else {
+            parent.to_path_buf()
+        };
+
+        if name_lower.ends_with(".zip") {
+            let output = tokio::process::Command::new("unzip")
+                .args(["-q", "-o", archive.to_str().unwrap(), "-d", target_dir.to_str().unwrap()])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to spawn unzip: {}", e))?;
+
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("unzip error: {}", err.trim()));
+            }
+        } else if name_lower.ends_with(".tar.gz")
+            || name_lower.ends_with(".tgz")
+            || name_lower.ends_with(".tar.xz")
+            || name_lower.ends_with(".tar.bz2")
+            || name_lower.ends_with(".tar")
+        {
+            let output = tokio::process::Command::new("tar")
+                .args(["-xf", archive.to_str().unwrap(), "-C", target_dir.to_str().unwrap()])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to spawn tar: {}", e))?;
+
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("tar error: {}", err.trim()));
+            }
+        } else {
+            return Err(format!(
+                "Unsupported archive format for '{}'. Expected .zip, .tar.gz, .tgz, .tar.xz",
+                file_name
+            ));
+        }
+
+        count += 1;
+        if into_subfolder {
+            let dest_name = target_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("folder");
+            last_desc = format!("Extracted '{}' to '{}/'", file_name, dest_name);
+        } else {
+            last_desc = format!("Extracted '{}' in-place", file_name);
+        }
+    }
+
+    if count == 1 {
+        Ok(last_desc)
     } else {
-        info!("Extracted '{}' in-place", file_name);
-        Ok(format!("Extracted '{}' in-place", file_name))
+        Ok(format!("Extracted {} archives", count))
     }
 }
 
@@ -366,28 +375,53 @@ pub async fn copy_path(paths: &[PathBuf], full: bool) -> Result<String, String> 
     Ok(format!("Copied {} of {} item(s)", label, paths.len()))
 }
 
-/// Copies the text content of the selected file to clipboard.
+/// Copies the text content of the selected file(s) to clipboard.
 pub async fn copy_contents(paths: &[PathBuf]) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let meta = tokio::fs::metadata(target)
-        .await
-        .map_err(|e| format!("Failed to read file metadata: {}", e))?;
-    if meta.len() > 10 * 1024 * 1024 {
-        return Err("File too large (>10MB) to copy to clipboard".to_string());
-    }
-    let content = tokio::fs::read_to_string(target)
-        .await
-        .map_err(|_| "Selected file is binary or not UTF-8 text".to_string())?;
 
-    write_to_wl_copy(content.as_bytes(), None).await?;
-    let name = target
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
-    Ok(format!("Copied contents of '{}' ({} bytes)", name, content.len()))
+    if paths.len() == 1 {
+        let target = &paths[0];
+        let meta = tokio::fs::metadata(target)
+            .await
+            .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+        if meta.len() > 10 * 1024 * 1024 {
+            return Err("File too large (>10MB) to copy to clipboard".to_string());
+        }
+        let content = tokio::fs::read_to_string(target)
+            .await
+            .map_err(|_| "Selected file is binary or not UTF-8 text".to_string())?;
+
+        write_to_wl_copy(content.as_bytes(), None).await?;
+        let name = target
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("file");
+        Ok(format!("Copied contents of '{}' ({} bytes)", name, content.len()))
+    } else {
+        let mut total_bytes = 0;
+        let mut sections = Vec::new();
+        for target in paths {
+            if let Ok(content) = tokio::fs::read_to_string(target).await {
+                let name = target
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("file");
+                total_bytes += content.len();
+                if total_bytes > 10 * 1024 * 1024 {
+                    return Err("Combined content too large (>10MB) to copy to clipboard".to_string());
+                }
+                sections.push(format!("// === {} ===\n{}\n", name, content));
+            }
+        }
+        if sections.is_empty() {
+            return Err("No readable UTF-8 text files among selected items".to_string());
+        }
+        let combined = sections.join("\n");
+        write_to_wl_copy(combined.as_bytes(), None).await?;
+        Ok(format!("Copied contents of {} files to clipboard", sections.len()))
+    }
 }
 
 /// Copies the selected image to the Wayland clipboard as image/png.
@@ -680,31 +714,50 @@ pub async fn new_folder(paths: &[PathBuf], name: &str) -> Result<String, String>
     Ok(format!("Created folder '{}'", folder_name))
 }
 
-/// Renames the selected file, preserving original extension if not specified.
+/// Renames the selected file(s), preserving original extension if not specified.
 pub async fn rename_selected(paths: &[PathBuf], new_name: &str) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No file selected to rename".to_string());
     }
-    let target = &paths[0];
-    let parent = target.parent().unwrap_or_else(|| Path::new("."));
-    let old_name = target
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
 
-    let final_name = if new_name.contains('.') {
-        new_name.to_string()
-    } else if let Some(ext) = target.extension().and_then(|e| e.to_str()) {
-        format!("{}.{}", new_name, ext)
+    if paths.len() == 1 {
+        let target = &paths[0];
+        let parent = target.parent().unwrap_or_else(|| Path::new("."));
+        let old_name = target
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("file");
+
+        let final_name = if new_name.contains('.') {
+            new_name.to_string()
+        } else if let Some(ext) = target.extension().and_then(|e| e.to_str()) {
+            format!("{}.{}", new_name, ext)
+        } else {
+            new_name.to_string()
+        };
+
+        let dest = parent.join(&final_name);
+        tokio::fs::rename(target, &dest)
+            .await
+            .map_err(|e| format!("Failed to rename: {}", e))?;
+        Ok(format!("Renamed '{}' to '{}'", old_name, final_name))
     } else {
-        new_name.to_string()
-    };
-
-    let dest = parent.join(&final_name);
-    tokio::fs::rename(target, &dest)
-        .await
-        .map_err(|e| format!("Failed to rename: {}", e))?;
-    Ok(format!("Renamed '{}' to '{}'", old_name, final_name))
+        let mut count = 0;
+        for (i, target) in paths.iter().enumerate() {
+            let parent = target.parent().unwrap_or_else(|| Path::new("."));
+            let ext = target.extension().and_then(|e| e.to_str());
+            let indexed_name = if let Some(e) = ext {
+                format!("{}_{}.{}", new_name, i + 1, e)
+            } else {
+                format!("{}_{}", new_name, i + 1)
+            };
+            let dest = parent.join(&indexed_name);
+            if tokio::fs::rename(target, &dest).await.is_ok() {
+                count += 1;
+            }
+        }
+        Ok(format!("Renamed {} items to '{}_N'", count, new_name))
+    }
 }
 
 /// Prepends current YYYY-MM-DD date stamp to the selected filename.
@@ -847,56 +900,68 @@ pub async fn extract_audio(paths: &[PathBuf], format: &str) -> Result<String, St
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let parent = target.parent().unwrap_or_else(|| Path::new("."));
-    let stem = target
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("audio");
 
-    let out_name = format!("{}.{}", stem, format);
-    let mut out_path = parent.join(&out_name);
-    let mut counter = 1;
-    while out_path.exists() {
-        out_path = parent.join(format!("{}_{}.{}", stem, counter, format));
-        counter += 1;
+    let mut count = 0;
+    let mut last_name = String::new();
+
+    for target in paths {
+        let parent = target.parent().unwrap_or_else(|| Path::new("."));
+        let stem = target
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("audio");
+
+        let out_name = format!("{}.{}", stem, format);
+        let mut out_path = parent.join(&out_name);
+        let mut counter = 1;
+        while out_path.exists() {
+            out_path = parent.join(format!("{}_{}.{}", stem, counter, format));
+            counter += 1;
+        }
+
+        let mut cmd = tokio::process::Command::new("ffmpeg");
+        cmd.args(["-y", "-i", target.to_str().unwrap(), "-vn"]);
+        match format {
+            "mp3" => {
+                cmd.args(["-c:a", "libmp3lame", "-q:a", "2"]);
+            }
+            "wav" => {
+                cmd.args(["-c:a", "pcm_s16le"]);
+            }
+            "flac" => {
+                cmd.args(["-c:a", "flac"]);
+            }
+            "m4a" => {
+                cmd.args(["-c:a", "aac", "-b:a", "192k"]);
+            }
+            _ => {
+                cmd.args(["-c:a", "copy"]);
+            }
+        }
+        cmd.arg(out_path.to_str().unwrap());
+
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("FFmpeg error: {}", err.trim()));
+        }
+
+        last_name = out_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&out_name)
+            .to_string();
+        count += 1;
     }
 
-    let mut cmd = tokio::process::Command::new("ffmpeg");
-    cmd.args(["-y", "-i", target.to_str().unwrap(), "-vn"]);
-    match format {
-        "mp3" => {
-            cmd.args(["-c:a", "libmp3lame", "-q:a", "2"]);
-        }
-        "wav" => {
-            cmd.args(["-c:a", "pcm_s16le"]);
-        }
-        "flac" => {
-            cmd.args(["-c:a", "flac"]);
-        }
-        "m4a" => {
-            cmd.args(["-c:a", "aac", "-b:a", "192k"]);
-        }
-        _ => {
-            cmd.args(["-c:a", "copy"]);
-        }
+    if count == 1 {
+        Ok(format!("Extracted audio to '{}'", last_name))
+    } else {
+        Ok(format!("Extracted audio from {} items", count))
     }
-    cmd.arg(out_path.to_str().unwrap());
-
-    let output = cmd
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg error: {}", err.trim()));
-    }
-
-    let final_name = out_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(&out_name);
-    Ok(format!("Extracted audio to '{}'", final_name))
 }
 
 /// Converts image format using ImageMagick.
@@ -904,37 +969,49 @@ pub async fn convert_image(paths: &[PathBuf], format: &str) -> Result<String, St
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let parent = target.parent().unwrap_or_else(|| Path::new("."));
-    let stem = target
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("image");
 
-    let out_name = format!("{}.{}", stem, format);
-    let mut out_path = parent.join(&out_name);
-    let mut counter = 1;
-    while out_path.exists() {
-        out_path = parent.join(format!("{}_{}.{}", stem, counter, format));
-        counter += 1;
+    let mut count = 0;
+    let mut last_name = String::new();
+
+    for target in paths {
+        let parent = target.parent().unwrap_or_else(|| Path::new("."));
+        let stem = target
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image");
+
+        let out_name = format!("{}.{}", stem, format);
+        let mut out_path = parent.join(&out_name);
+        let mut counter = 1;
+        while out_path.exists() {
+            out_path = parent.join(format!("{}_{}.{}", stem, counter, format));
+            counter += 1;
+        }
+
+        let output = tokio::process::Command::new("magick")
+            .args([target.to_str().unwrap(), out_path.to_str().unwrap()])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to spawn magick: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("ImageMagick error: {}", err.trim()));
+        }
+
+        last_name = out_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&out_name)
+            .to_string();
+        count += 1;
     }
 
-    let output = tokio::process::Command::new("magick")
-        .args([target.to_str().unwrap(), out_path.to_str().unwrap()])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn magick: {}", e))?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("ImageMagick error: {}", err.trim()));
+    if count == 1 {
+        Ok(format!("Converted to '{}'", last_name))
+    } else {
+        Ok(format!("Converted {} images to {}", count, format.to_uppercase()))
     }
-
-    let final_name = out_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(&out_name);
-    Ok(format!("Converted to '{}'", final_name))
 }
 
 /// Creates a palette-optimized GIF from video using FFmpeg.
@@ -942,45 +1019,57 @@ pub async fn make_gif(paths: &[PathBuf]) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let parent = target.parent().unwrap_or_else(|| Path::new("."));
-    let stem = target
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("animation");
 
-    let out_name = format!("{}.gif", stem);
-    let mut out_path = parent.join(&out_name);
-    let mut counter = 1;
-    while out_path.exists() {
-        out_path = parent.join(format!("{}_{}.gif", stem, counter));
-        counter += 1;
+    let mut count = 0;
+    let mut last_name = String::new();
+
+    for target in paths {
+        let parent = target.parent().unwrap_or_else(|| Path::new("."));
+        let stem = target
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("animation");
+
+        let out_name = format!("{}.gif", stem);
+        let mut out_path = parent.join(&out_name);
+        let mut counter = 1;
+        while out_path.exists() {
+            out_path = parent.join(format!("{}_{}.gif", stem, counter));
+            counter += 1;
+        }
+
+        let vf = "fps=15,scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
+        let output = tokio::process::Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-i",
+                target.to_str().unwrap(),
+                "-vf",
+                vf,
+                out_path.to_str().unwrap(),
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("FFmpeg error: {}", err.trim()));
+        }
+
+        last_name = out_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&out_name)
+            .to_string();
+        count += 1;
     }
 
-    let vf = "fps=15,scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
-    let output = tokio::process::Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-i",
-            target.to_str().unwrap(),
-            "-vf",
-            vf,
-            out_path.to_str().unwrap(),
-        ])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFmpeg error: {}", err.trim()));
+    if count == 1 {
+        Ok(format!("Created GIF '{}'", last_name))
+    } else {
+        Ok(format!("Created {} GIFs", count))
     }
-
-    let final_name = out_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(&out_name);
-    Ok(format!("Created GIF '{}'", final_name))
 }
 
 /// Extracts PDF pages into high-resolution PNG images via pdftoppm.
@@ -988,55 +1077,53 @@ pub async fn pdf_to_images(paths: &[PathBuf]) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let parent = target.parent().unwrap_or_else(|| Path::new("."));
-    let stem = target
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("doc");
 
-    let prefix = parent.join(format!("{}_page", stem));
-    let output = tokio::process::Command::new("pdftoppm")
-        .args([
-            "-png",
-            "-r",
-            "150",
-            target.to_str().unwrap(),
-            prefix.to_str().unwrap(),
-        ])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn pdftoppm: {}", e))?;
+    let mut count = 0;
+    let mut last_file = String::new();
 
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("pdftoppm error: {}", err.trim()));
+    for target in paths {
+        let parent = target.parent().unwrap_or_else(|| Path::new("."));
+        let stem = target
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("doc");
+
+        let prefix = parent.join(format!("{}_page", stem));
+        let output = tokio::process::Command::new("pdftoppm")
+            .args([
+                "-png",
+                "-r",
+                "150",
+                target.to_str().unwrap(),
+                prefix.to_str().unwrap(),
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to spawn pdftoppm: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("pdftoppm error: {}", err.trim()));
+        }
+
+        last_file = target
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("document")
+            .to_string();
+        count += 1;
     }
 
-    let file_name = target
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("document");
-    Ok(format!("Extracted pages from '{}' to PNG images", file_name))
+    if count == 1 {
+        Ok(format!("Extracted pages from '{}' to PNG images", last_file))
+    } else {
+        Ok(format!("Extracted pages from {} PDFs to PNG images", count))
+    }
 }
 
-/// Returns summary info (size, permissions, kind) for the selected item.
-pub async fn file_info(paths: &[PathBuf]) -> Result<String, String> {
-    if paths.is_empty() {
-        return Err("No file selected".to_string());
-    }
-    let target = &paths[0];
-    let meta = tokio::fs::metadata(target)
-        .await
-        .map_err(|e| format!("Failed to read metadata: {}", e))?;
-
-    let name = target
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("item");
-    let kind = if meta.is_dir() { "Directory" } else { "File" };
-    let size_bytes = meta.len();
-    let size_fmt = if size_bytes < 1024 {
+/// Helper: Formats bytes into human-readable representation.
+fn format_byte_size(size_bytes: u64) -> String {
+    if size_bytes < 1024 {
         format!("{} B", size_bytes)
     } else if size_bytes < 1024 * 1024 {
         format!("{:.1} KB", size_bytes as f64 / 1024.0)
@@ -1044,9 +1131,53 @@ pub async fn file_info(paths: &[PathBuf]) -> Result<String, String> {
         format!("{:.1} MB", size_bytes as f64 / (1024.0 * 1024.0))
     } else {
         format!("{:.2} GB", size_bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    };
+    }
+}
 
-    Ok(format!("{}: {} ({})", name, size_fmt, kind))
+/// Returns summary info (size, permissions, kind) for the selected item(s).
+pub async fn file_info(paths: &[PathBuf]) -> Result<String, String> {
+    if paths.is_empty() {
+        return Err("No file selected".to_string());
+    }
+
+    if paths.len() == 1 {
+        let target = &paths[0];
+        let meta = tokio::fs::metadata(target)
+            .await
+            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+
+        let name = target
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("item");
+        let kind = if meta.is_dir() { "Directory" } else { "File" };
+        let size_fmt = format_byte_size(meta.len());
+
+        Ok(format!("{}: {} ({})", name, size_fmt, kind))
+    } else {
+        let mut total_size = 0u64;
+        let mut dirs = 0;
+        let mut files = 0;
+
+        for p in paths {
+            if let Ok(meta) = tokio::fs::metadata(p).await {
+                if meta.is_dir() {
+                    dirs += 1;
+                } else {
+                    files += 1;
+                    total_size += meta.len();
+                }
+            }
+        }
+
+        let size_fmt = format_byte_size(total_size);
+        let breakdown = match (dirs, files) {
+            (d, 0) => format!("{} dirs", d),
+            (0, f) => format!("{} files", f),
+            (d, f) => format!("{} dirs, {} files", d, f),
+        };
+        Ok(format!("{} items: {} total ({})", paths.len(), size_fmt, breakdown))
+    }
 }
 
 /// Calculates SHA-256 checksum and copies it to clipboard.
@@ -1054,27 +1185,55 @@ pub async fn checksum_selected(paths: &[PathBuf]) -> Result<String, String> {
     if paths.is_empty() {
         return Err("No file selected".to_string());
     }
-    let target = &paths[0];
-    let output = tokio::process::Command::new("sha256sum")
-        .arg(target.to_str().unwrap())
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run sha256sum: {}", e))?;
 
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("sha256sum error: {}", err.trim()));
+    if paths.len() == 1 {
+        let target = &paths[0];
+        let output = tokio::process::Command::new("sha256sum")
+            .arg(target.to_str().unwrap())
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run sha256sum: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("sha256sum error: {}", err.trim()));
+        }
+
+        let out_str = String::from_utf8_lossy(&output.stdout);
+        let hash = out_str
+            .split_whitespace()
+            .next()
+            .ok_or_else(|| "Failed to parse sha256 output".to_string())?;
+
+        write_to_wl_copy(hash.as_bytes(), None).await?;
+        let prefix = if hash.len() > 12 { &hash[..12] } else { hash };
+        Ok(format!("SHA-256: {}... (copied to clipboard)", prefix))
+    } else {
+        let mut lines = Vec::new();
+        for target in paths {
+            let output = tokio::process::Command::new("sha256sum")
+                .arg(target.to_str().unwrap())
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run sha256sum: {}", e))?;
+
+            if output.status.success() {
+                let out_str = String::from_utf8_lossy(&output.stdout);
+                let trimmed = out_str.trim();
+                if !trimmed.is_empty() {
+                    lines.push(trimmed.to_string());
+                }
+            }
+        }
+
+        if lines.is_empty() {
+            return Err("Failed to compute any checksums".to_string());
+        }
+
+        let combined = lines.join("\n");
+        write_to_wl_copy(combined.as_bytes(), None).await?;
+        Ok(format!("SHA-256 for {} files copied to clipboard", lines.len()))
     }
-
-    let out_str = String::from_utf8_lossy(&output.stdout);
-    let hash = out_str
-        .split_whitespace()
-        .next()
-        .ok_or_else(|| "Failed to parse sha256 output".to_string())?;
-
-    write_to_wl_copy(hash.as_bytes(), None).await?;
-    let prefix = if hash.len() > 12 { &hash[..12] } else { hash };
-    Ok(format!("SHA-256: {}... (copied to clipboard)", prefix))
 }
 
 /// Opens the Kitty terminal in the directory of the selected file.

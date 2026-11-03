@@ -144,38 +144,43 @@ Semantic accessibility inspection via `agent-desktop` paired with Wayland virtua
 ### 2.8 File & Archive Management (Zero-LLM)
 Instant file manipulation, compression, and extraction for highlighted or selected files in Dolphin, desktop file managers, or terminals. Detects selected items via Wayland clipboard synchronization (`wtype` Ctrl+C + `wl-paste -t text/uri-list`) and executes native Linux tools and system calls in <100ms with zero AI tokens or latency.
 
-| Capability | Spoken Variants / Synonyms | Action / AST | Details & Execution Target |
+> [!NOTE]
+> **Full Multi-Selection & Batch Processing**: Every file and media action fully supports both single selected items and batch multi-selection. When multiple files are highlighted in Dolphin, Nautilus, or terminal:
+> - **Aggregation actions** (e.g. `zip`, `file info`, `checksum`, `copy path`, `copy contents`) automatically combine, aggregate, or bundle the selected items.
+> - **Batch conversion/mutation actions** (e.g. `unzip`, `convert image`, `extract audio`, `duplicate`, `trash`, `move`, `timestamp`, `clean`, `strip metadata`, `rename`) execute over each selected item concurrently or sequentially with automated conflict resolution.
+
+| Capability | Spoken Variants / Synonyms | Action / AST | Details & Multi-Selection Support |
 | :--- | :--- | :--- | :--- |
-| **Zip Selected (Archive)** | `"zip"`, `"zip selected"`, `"zip this"`, `"zip file"`, `"compress selected"`, `"compress this"`, `"zip them"`, `"zip all"` *(ASR homophones: `"jip"`, `"jip them"`, `"jip all"`)* | `FileAction::ZipSelected` | Compresses selected file or directory into `<name>.zip` in the parent directory. Handles multiple selections into `archive.zip` with automatic collision numbering. |
-| **Unzip Selected (Subfolder)** | `"unzip"`, `"unzip selected"`, `"unzip this"`, `"unzip file"`, `"extract selected"`, `"extract this"`, `"unzip them all"` *(ASR homophones: `"unjip"`, `"anjip"`, `"unchip"`)* | `FileAction::UnzipSelected { into_subfolder: true }` | Extracts archive into an isolated `<name>/` subfolder. Supports `.zip`, `.tar.gz`, `.tgz`, `.tar.xz`, `.tar.bz2`, `.tar`. Prevents root directory clutter. |
-| **Unzip / Extract In-Place** | `"extract here"`, `"unzip here"`, `"extract in place"`, `"unzip in place"` | `FileAction::UnzipSelected { into_subfolder: false }` | Extracts archive contents directly into the current parent folder. |
-| **Copy Full Path** | `"copy path"`, `"copy the path"`, `"copy full path"`, `"copy file path"`, `"copy location"` *(homophones: `"copy pass"`, `"copy pat"`)* | `FileAction::CopyPath { full: true }` | Copies absolute filesystem path (e.g. `/home/user/Downloads/report.pdf`) directly to the Wayland clipboard via `wl-copy`. |
-| **Copy Filename** | `"copy filename"`, `"copy file name"`, `"copy name"`, `"copy short path"` | `FileAction::CopyPath { full: false }` | Copies only the base filename (e.g. `report.pdf`) to the Wayland clipboard. |
-| **Copy File Contents** | `"copy content"`, `"copy contents"`, `"copy text"`, `"copy code"`, `"copy file text"` | `FileAction::CopyContents` | Reads UTF-8 text/code content of the selected file (<10MB guardrail) and loads it into the Wayland clipboard buffer. |
-| **Copy Image to Clipboard** | `"copy image"`, `"copy picture"`, `"copy photo"`, `"copy image to clipboard"` | `FileAction::CopyImage` | Reads selected image (PNG, JPG, WEBP, SVG, TIFF) and streams PNG bitmap into `wl-copy -t image/png` via ImageMagick. |
-| **Save Clipboard Here** | `"save clipboard"`, `"save clipboard here"`, `"save buffer"`, `"paste to file"`, `"paste clipboard here"` | `FileAction::SaveClipboardHere` | Detects clipboard type: writes bitmap images to `clipboard_<timestamp>.png` or text to `clipboard_<timestamp>.txt` in the active folder (defaults to `~/Downloads`). |
-| **Duplicate Selected** | `"duplicate"`, `"duplicate file"`, `"duplicate this"`, `"duplicate selected"`, `"clone file"`, `"make copy"` | `FileAction::DuplicateSelected` | Safely duplicates files or directories into `<name>_copy.<ext>` with auto-incrementing collision avoidance (`_copy_1`, `_copy_2`). |
-| **Trash Selected** | `"trash"`, `"trash selected"`, `"trash this"`, `"trash file"`, `"move to trash"`, `"send to trash"`, `"delete selected"` | `FileAction::TrashSelected` | **Freedesktop Compliant:** Moves files to `~/.local/share/Trash/files/` and writes `~/.local/share/Trash/info/<name>.trashinfo`. Dolphin and CLI trash utilities can immediately view and restore items. |
-| **Move to Directory** | `"move to downloads"`, `"send to documents"`, `"move to desktop"`, `"move to pictures"`, `"move to videos"`, `"move to music"` | `FileAction::MoveToDirectory(Dir)` | Organizes highlighted files into standard XDG directories (`Downloads`, `Documents`, `Desktop`, `Pictures`, `Videos`, `Music`). |
+| **Zip Selected (Archive)** | `"zip"`, `"zip selected"`, `"zip this"`, `"zip file"`, `"compress selected"`, `"compress this"`, `"zip them"`, `"zip all"` *(ASR homophones: `"jip"`, `"jip them"`, `"jip all"`)* | `FileAction::ZipSelected` | **Multi-selection:** Bundles all selected items into `archive.zip` (or `archive_N.zip`). For single item, produces `<name>.zip`. |
+| **Unzip Selected (Subfolder)** | `"unzip"`, `"unzip selected"`, `"unzip this"`, `"unzip file"`, `"extract selected"`, `"extract this"`, `"unzip them all"` *(ASR homophones: `"unjip"`, `"anjip"`, `"unchip"`)* | `FileAction::UnzipSelected { into_subfolder: true }` | **Multi-selection:** Extracts all selected archives into individual subfolders (`<archive>/`). Supports `.zip`, `.tar.gz`, `.tgz`, `.tar.xz`, `.tar.bz2`, `.tar`. |
+| **Unzip / Extract In-Place** | `"extract here"`, `"unzip here"`, `"extract in place"`, `"unzip in place"` | `FileAction::UnzipSelected { into_subfolder: false }` | **Multi-selection:** Extracts all selected archives directly in-place in current folder. |
+| **Copy Full Path** | `"copy path"`, `"copy the path"`, `"copy full path"`, `"copy file path"`, `"copy location"`, `"full path"`, `"file path"` *(homophones: `"copy pass"`, `"copy pat"`)* | `FileAction::CopyPath { full: true }` | **Multi-selection:** Joins absolute filesystem paths of all selected items with newlines (`\n`) into the Wayland clipboard. |
+| **Copy Filename** | `"copy filename"`, `"copy file name"`, `"copy name"`, `"copy short path"`, `"filename"` | `FileAction::CopyPath { full: false }` | **Multi-selection:** Joins base filenames of all selected items with newlines (`\n`) into clipboard. |
+| **Copy File Contents** | `"copy content"`, `"copy contents"`, `"copy text"`, `"copy code"`, `"copy file text"` | `FileAction::CopyContents` | **Multi-selection:** Reads UTF-8 text/code of selected files (<10MB ceiling) separated by header dividers (`// === filename ===`). |
+| **Copy Image to Clipboard** | `"copy image"`, `"copy picture"`, `"copy photo"`, `"copy image to clipboard"` | `FileAction::CopyImage` | Reads selected image and streams PNG bitmap into `wl-copy -t image/png` via ImageMagick. |
+| **Save Clipboard Here** | `"save clipboard"`, `"save clipboard here"`, `"save buffer"`, `"paste to file"`, `"paste clipboard here"` | `FileAction::SaveClipboardHere` | Detects clipboard type: writes bitmap images to `clipboard_<timestamp>.png` or text to `clipboard_<timestamp>.txt` in active folder. |
+| **Duplicate Selected** | `"duplicate"`, `"duplicate file"`, `"duplicate this"`, `"duplicate selected"`, `"clone file"`, `"make copy"`, `"copy this"`, `"copy this file"` | `FileAction::DuplicateSelected` | **Multi-selection:** Loops over all selected files/directories, duplicating each into `<name>_copy.<ext>` with auto-incrementing collision avoidance. |
+| **Trash Selected** | `"trash"`, `"trash selected"`, `"trash this"`, `"trash file"`, `"move to trash"`, `"send to trash"`, `"delete selected"` | `FileAction::TrashSelected` | **Multi-selection:** Moves all selected files to `~/.local/share/Trash/files/` and writes corresponding `.trashinfo` metadata for full Freedesktop restore compatibility. |
+| **Move to Directory** | `"move to downloads"`, `"downloads"`, `"send to documents"`, `"documents"`, `"move to desktop"`, `"desktop"`, `"pictures"`, `"videos"`, `"music"` | `FileAction::MoveToDirectory(Dir)` | **Multi-selection:** Moves all selected files into the target XDG directory with auto-renaming on collision. |
 | **Create New Folder** | `"new folder"`, `"new folder projects"`, `"create folder Assets"`, `"make directory src"` | `FileAction::NewFolder { name }` | Creates a new directory in the active location (defaults to `"New Folder"` if unspecified). |
-| **Rename File** | `"rename to final_report"`, `"rename this to resume"`, `"rename file to backup"` | `FileAction::RenameSelected { new_name }` | Renames selected file, automatically preserving original file extension if omitted by voice. |
-| **Timestamp Filename** | `"timestamp"`, `"timestamp this"`, `"timestamp file"`, `"add timestamp"`, `"datestamp this"` | `FileAction::TimestampSelected` | Prepends ISO date (`YYYY-MM-DD_<name>.<ext>`) to the filename for chronological archiving. |
-| **Clean / Sanitize Filename** | `"clean filename"`, `"clean name"`, `"sanitize filename"`, `"slugify filename"`, `"normalize filename"` | `FileAction::CleanFilename` | Sanitizes name: lowercases, converts whitespace and special symbols to hyphens, removes illegal characters, and trims trailing dashes. |
-| **Strip EXIF / Metadata** | `"strip metadata"`, `"clean metadata"`, `"strip exif"`, `"remove metadata"`, `"strip tags"` | `FileAction::StripMetadata` | Privacy cleaner: strips EXIF GPS/camera data from images via ImageMagick, and cleans ID3/metadata tags from videos/audio via FFmpeg without re-encoding. |
+| **Rename File** | `"rename to final_report"`, `"rename this to resume"`, `"rename file to backup"` | `FileAction::RenameSelected { new_name }` | **Multi-selection:** Single file renames directly; multiple files are renamed sequentially with indexed suffixes (`<name>_1.<ext>`, `<name>_2.<ext>`). |
+| **Timestamp Filename** | `"timestamp"`, `"timestamp this"`, `"timestamp file"`, `"add timestamp"`, `"datestamp this"` | `FileAction::TimestampSelected` | **Multi-selection:** Prepends ISO date (`YYYY-MM-DD_<name>.<ext>`) to every selected item. |
+| **Clean / Sanitize Filename** | `"clean filename"`, `"clean name"`, `"clean"`, `"sanitize filename"`, `"slugify filename"`, `"normalize filename"` | `FileAction::CleanFilename` | **Multi-selection:** Sanitizes names of all selected files (lowercasing, symbol-to-hyphen conversion, trimming). |
+| **Strip EXIF / Metadata** | `"strip metadata"`, `"clean metadata"`, `"metadata"`, `"strip exif"`, `"remove metadata"`, `"strip tags"` | `FileAction::StripMetadata` | **Multi-selection:** Privacy cleaner for all selected files: strips EXIF GPS/camera data from images via ImageMagick, and cleans ID3/metadata from media via FFmpeg. |
 
 ---
 
 ### 2.9 Media Conversion & Power Tools (Zero-LLM)
 
-| Capability | Spoken Variants / Synonyms | Action / AST | Details & Execution Target |
+| Capability | Spoken Variants / Synonyms | Action / AST | Details & Multi-Selection Support |
 | :--- | :--- | :--- | :--- |
-| **Extract Audio Track** | `"extract audio"`, `"rip audio"`, `"convert to mp3"`, `"extract mp3"`, `"convert to wav"`, `"convert to flac"`, `"convert to m4a"` | `FileAction::ExtractAudio { format }` | Extracts audio stream from video/audio container via FFmpeg with optimized audio encoders (`libmp3lame`, `pcm_s16le`, `flac`, `aac`). |
-| **Convert Image Format** | `"convert to png"`, `"convert to jpg"`, `"convert to webp"`, `"convert to ico"`, `"make webp"`, `"save as png"` | `FileAction::ConvertImage { format }` | High-fidelity image conversion via ImageMagick (`magick`) preserving transparency and visual quality. |
-| **Generate Animated GIF** | `"make gif"`, `"make a gif"`, `"create gif"`, `"convert to gif"`, `"turn into gif"` | `FileAction::MakeGif` | Generates a 15fps, 640px palette-optimized animated GIF from video using FFmpeg two-pass palette generation. |
-| **Render PDF to Images** | `"pdf to images"`, `"convert pdf to images"`, `"extract pdf pages"`, `"pdf pages to images"` | `FileAction::PdfToImages` | Extracts each page of a PDF document into 150 DPI PNG images via `pdftoppm`. |
-| **File Information** | `"file info"`, `"file size"`, `"inspect file"`, `"file details"`, `"file properties"` | `FileAction::FileInfo` | Emits a HUD pill and logs formatted human-readable size (B, KB, MB, GB), permissions, and item type. |
-| **Compute SHA-256 Checksum** | `"checksum"`, `"checksum this"`, `"sha256"`, `"sha256 this"`, `"calculate checksum"`, `"hash file"` | `FileAction::ChecksumSelected` | Computes SHA-256 hash using native core utilities, automatically copies the hash string to Wayland clipboard, and displays the checksum prefix on HUD. |
-| **Open Folder in Terminal** | `"open in terminal"`, `"open terminal here"`, `"terminal here"`, `"open folder in terminal"` | `FileAction::OpenInTerminal` | Spawns `kitty` terminal directly in the directory of the selected file or active folder. |
+| **Extract Audio Track** | `"extract audio"`, `"rip audio"`, `"convert to mp3"`, `"extract mp3"`, `"mp3"`, `"convert to wav"`, `"convert to flac"`, `"convert to m4a"` | `FileAction::ExtractAudio { format }` | **Multi-selection:** Batch converts and extracts audio tracks from all selected video/audio items via FFmpeg (`libmp3lame`, `pcm_s16le`, `flac`, `aac`). |
+| **Convert Image Format** | `"convert to png"`, `"png"`, `"convert to jpg"`, `"jpg"`, `"convert to webp"`, `"webp"`, `"make webp"`, `"convert to ico"`, `"save as png"` | `FileAction::ConvertImage { format }` | **Multi-selection:** Batch converts all selected images via ImageMagick preserving transparency and quality. |
+| **Generate Animated GIF** | `"make gif"`, `"make a gif"`, `"create gif"`, `"convert to gif"`, `"turn into gif"` | `FileAction::MakeGif` | **Multi-selection:** Generates 15fps palette-optimized animated GIFs for each selected video container via FFmpeg. |
+| **Render PDF to Images** | `"pdf to images"`, `"convert pdf to images"`, `"extract pdf pages"`, `"pdf pages to images"` | `FileAction::PdfToImages` | **Multi-selection:** Batch extracts each page of all selected PDF documents into 150 DPI PNG images via `pdftoppm`. |
+| **File Information** | `"file info"`, `"file size"`, `"inspect file"`, `"file details"`, `"file properties"` | `FileAction::FileInfo` | **Multi-selection:** For single file, reports formatted size and permissions. For multiple items, calculates total combined size and counts (`N items: X MB total (A dirs, B files)`). |
+| **Compute SHA-256 Checksum** | `"checksum"`, `"checksum this"`, `"sha256"`, `"sha 256"`, `"calculate checksum"`, `"hash file"` | `FileAction::ChecksumSelected` | **Multi-selection:** Calculates SHA-256 for all selected items, joins them into `<hash>  <filename>` format, and copies the complete list to Wayland clipboard. |
+| **Open Folder in Terminal** | `"open in terminal"`, `"open terminal here"`, `"terminal here"`, `"open folder in terminal"`, `"terminal"` | `FileAction::OpenInTerminal` | Spawns `kitty` terminal directly in the parent directory of the selected file(s) or active folder. |
 
 ---
 
@@ -195,15 +200,16 @@ Reflex runs all input through an in-memory lexical normalizer (`reflex_core::nor
    - File & Clipboard operations:
      - `"coppy"`, `"coppi"`, `"kopy"`, `"copee"` $\rightarrow$ `"copy"`
      - `"pass"`, `"pat"`, `"pash"`, `"paath"` $\rightarrow$ `"path"` (`"full pass"` $\rightarrow$ `"full path"`)
-     - `"clip board"` $\rightarrow$ `"clipboard"`
+     - `"clip board"`, `"lib board"`, `"lip board"`, `"libboard"`, `"clip bord"` $\rightarrow$ `"clipboard"`
      - `"duplicat"`, `"dublicate"`, `"doop"`, `"dupe"`, `"dupe it"` $\rightarrow$ `"duplicate this"`
      - `"tresh"`, `"trush"`, `"treash"`, `"trash it"` $\rightarrow$ `"trash this"`
      - `"delit"`, `"dilit"`, `"delet"` $\rightarrow$ `"delete"`
      - `"polder"`, `"pholder"`, `"foldar"` $\rightarrow$ `"folder"`
      - `"klin"`, `"klean"`, `"clean it"`, `"sanitize it"` $\rightarrow$ `"clean filename"`
+     - `"clean file name clean"`, `"clean filename clean"` $\rightarrow$ `"clean filename"`
      - `"meta data"`, `"strip it"` $\rightarrow$ `"strip metadata"`
      - `"time stamp"`, `"date stamp"`, `"datestamp"` $\rightarrow$ `"timestamp"`
-     - `"check sum"`, `"sha 256"`, `"sha two fifty six"` $\rightarrow$ `"sha256"` / `"checksum"`
+     - `"check sum"`, `"sha 256"`, `"shah 256"`, `"shah256"`, `"sha two fifty six"` $\rightarrow$ `"sha256"` / `"checksum"`
      - `"terminel"`, `"tarminal"`, `"termnl"` $\rightarrow$ `"terminal"`
    - Standard Directories:
      - `"dawnload"`, `"dawnloads"`, `"down loads"` $\rightarrow$ `"downloads"`
@@ -215,7 +221,7 @@ Reflex runs all input through an in-memory lexical normalizer (`reflex_core::nor
      - `"em pee three"`, `"mp 3"` $\rightarrow$ `"mp3"`
      - `"pee en gee"`, `"p n g"` $\rightarrow$ `"png"`
      - `"jay peg"`, `"j p g"` $\rightarrow$ `"jpg"`
-     - `"web p"` $\rightarrow$ `"webp"`
+     - `"web p"`, `"weppy"`, `"webby"`, `"webi"`, `"wepy"` $\rightarrow$ `"webp"`
      - `"pee dee eff"`, `"p d f"` $\rightarrow$ `"pdf"`
      - `"jif"`, `"giph"`, `"geef"` $\rightarrow$ `"gif"`
      - `"adio"`, `"odiyo"`, `"audo"` $\rightarrow$ `"audio"`
@@ -225,9 +231,16 @@ Reflex runs all input through an in-memory lexical normalizer (`reflex_core::nor
      - `"floting"`, `"ploting"`, `"plotting"` $\rightarrow$ `"floating"`
      - `"speeker"`, `"spkr"` $\rightarrow$ `"speaker"`
      - `"valum"`, `"valume"`, `"volum"`, `"bolume"` $\rightarrow$ `"volume"`
-4. **Repetition Deduplication & Split-Word Merges:**
-   - Word repetitions: `"zip, zip"`, `"zip zip"`, `"jip, jip"` $\rightarrow$ `"zip"`; `"unzip, unzip"` $\rightarrow$ `"unzip"`; `"sound sound"` $\rightarrow$ `"sound"`; `"copy copy"` $\rightarrow$ `"copy"`; `"trash trash"` $\rightarrow$ `"trash"`; `"duplicate duplicate"` $\rightarrow$ `"duplicate"`; `"move move"` $\rightarrow$ `"move"`
-   - Split-word prefixes: `"un jip"`, `"an jip"`, `"un chip"`, `"an chip"` $\rightarrow$ `"unzip"`; `"time stamp"` $\rightarrow$ `"timestamp"`; `"meta data"` $\rightarrow$ `"metadata"`; `"re name"` $\rightarrow$ `"rename"`
+4. **Repetition Deduplication & Multi-Word Phrase Sanitization:**
+   - Single-token stutters: `"zip, zip"`, `"zip zip"`, `"jip, jip"` $\rightarrow$ `"zip"`; `"unzip, unzip"` $\rightarrow$ `"unzip"`; `"sound sound"` $\rightarrow$ `"sound"`; `"copy copy"` $\rightarrow$ `"copy"`; `"trash trash"` $\rightarrow$ `"trash"`; `"duplicate duplicate"` $\rightarrow$ `"duplicate"`; `"move move"` $\rightarrow$ `"move"`; `"mp3 mp3"` $\rightarrow$ `"mp3"`; `"png png"` $\rightarrow$ `"png"`; `"jpg jpg"` $\rightarrow$ `"jpg"`; `"pdf pdf"` $\rightarrow$ `"pdf"`; `"Weppy, Webby, Webby, Webby"` $\rightarrow$ `"webp"`
+   - Multi-token phrase stutters (2-word & 3-word repetitions):
+     - `"full path full path"` $\rightarrow$ `"full path"`
+     - `"copy this copy this"` $\rightarrow$ `"copy this"`
+     - `"duplicate this duplicate this"` $\rightarrow$ `"duplicate this"`
+     - `"trash this trash this"` $\rightarrow$ `"trash this"`
+     - `"strip metadata strip metadata"` $\rightarrow$ `"strip metadata"`
+     - `"clean filename clean filename"` $\rightarrow$ `"clean filename"`
+   - Split-word prefixes: `"un jip"`, `"an jip"`, `"un chip"`, `"an chip"` $\rightarrow$ `"unzip"`; `"time stamp"` $\rightarrow$ `"timestamp"`; `"meta data"` $\rightarrow$ `"metadata"`; `"re name"` $\rightarrow$ `"rename"`; `"file name"` $\rightarrow$ `"filename"`
    - Pronoun targets: `"zip them"`, `"zip them all"`, `"zip all"`, `"unzip them"`, `"unzip them all"`, `"unzip all"`
    - Window & app merges: `"work space"` $\rightarrow$ `"workspace"`, `"you tube"` $\rightarrow$ `"youtube"`, `"whats app"` $\rightarrow$ `"whatsapp"`, `"screen shot"` $\rightarrow$ `"screenshot"`
 5. **Natural Number & Ordinal Parsing:**
