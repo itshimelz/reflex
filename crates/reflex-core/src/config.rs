@@ -13,6 +13,10 @@ fn default_velocity() -> u8 {
     15
 }
 
+fn default_clamp_volume() -> bool {
+    false
+}
+
 fn default_unkillable() -> Vec<String> {
     vec![
         "kitty".to_string(),
@@ -36,6 +40,8 @@ pub struct VolumeConfig {
     pub ceiling: u8,
     #[serde(default = "default_velocity")]
     pub max_step_velocity: u8,
+    #[serde(default = "default_clamp_volume")]
+    pub clamp_volume: bool,
 }
 
 impl Default for VolumeConfig {
@@ -43,6 +49,7 @@ impl Default for VolumeConfig {
         Self {
             ceiling: default_ceiling(),
             max_step_velocity: default_velocity(),
+            clamp_volume: default_clamp_volume(),
         }
     }
 }

@@ -71,13 +71,16 @@ jobs:
           # Strip binaries for smallest footprint
           strip target/release/reflex
           strip target/release/reflexd
+          strip target/release/reflex-hud
 
           # Copy binaries and assets into package directory
           cp target/release/reflex "${PKG_DIR}/"
           cp target/release/reflexd "${PKG_DIR}/"
+          cp target/release/reflex-hud "${PKG_DIR}/"
           cp scripts/reflex-agent-fallback "${PKG_DIR}/"
           chmod +x "${PKG_DIR}/reflex-agent-fallback"
           cp systemd/reflexd.service "${PKG_DIR}/systemd/"
+          cp systemd/reflex-hud.service "${PKG_DIR}/systemd/"
           cp config/default_config.toml "${PKG_DIR}/config/"
           cp README.md LICENSE-MIT "${PKG_DIR}/"
 
@@ -87,11 +90,12 @@ jobs:
           # Standalone binaries for direct downloading
           cp target/release/reflex "${DIST_DIR}/reflex"
           cp target/release/reflexd "${DIST_DIR}/reflexd"
+          cp target/release/reflex-hud "${DIST_DIR}/reflex-hud"
 
           # Generate SHA256 checksums
           cd "${DIST_DIR}"
           sha256sum "${PKG_NAME}.tar.gz" > "${PKG_NAME}.tar.gz.sha256"
-          sha256sum "${PKG_NAME}.tar.gz" reflex reflexd > SHA256SUMS.txt
+          sha256sum "${PKG_NAME}.tar.gz" reflex reflexd reflex-hud > SHA256SUMS.txt
           cd -
 
           ls -la "${DIST_DIR}"
@@ -107,6 +111,7 @@ jobs:
             dist/SHA256SUMS.txt
             dist/reflex
             dist/reflexd
+            dist/reflex-hud
           generate_release_notes: true
           draft: false
           prerelease: false

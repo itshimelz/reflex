@@ -27,11 +27,36 @@ export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}"
 
 NOTIFICATION_SYNC="string:x-canonical-private-synchronous:reflex-ai"
 
-# Step 1: Immediate in-place acknowledgment toast
-notify-send -t 15000 -a "Reflex AI" -i "system-run" \
-    -h "$NOTIFICATION_SYNC" \
-    "Reflex → AI Assistant" \
-    "Thinking: \"${TRANSCRIPT}\"..." 2>/dev/null || true
+# Helper to emit rich events directly to the Reflex HUD pill socket
+emit_hud() {
+    local icon="$1"
+    local title="$2"
+    local detail="${3:-}"
+    local tone="$4"
+    local hold_ms="${5:-3000}"
+    local sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/reflex-hud.sock"
+    if [ -S "$sock" ]; then
+        local safe_title="${title//\"/\\\"}"
+        local safe_detail="${detail//\"/\\\"}"
+        local payload
+        if [ -n "$detail" ]; then
+            payload=$(printf '{"icon":"%s","title":"%s","detail":"%s","tone":"%s","hold_ms":%d}\n' \
+                "$icon" "$safe_title" "$safe_detail" "$tone" "$hold_ms")
+        else
+            payload=$(printf '{"icon":"%s","title":"%s","detail":null,"tone":"%s","hold_ms":%d}\n' \
+                "$icon" "$safe_title" "$tone" "$hold_ms")
+        fi
+
+        if command -v socat >/dev/null 2>&1; then
+            echo "$payload" | socat -t 0.5 - "UNIX-CONNECT:$sock" >/dev/null 2>&1 || true
+        elif command -v nc >/dev/null 2>&1; then
+            echo "$payload" | nc -U -w 1 "$sock" >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+# Step 1: Immediate in-place acknowledgment HUD pill
+emit_hud "Sparkles" "Reflex AI" "Thinking: \"${TRANSCRIPT}\"..." "Purple" 15000
 
 # Step 2: Invoke headless agy with dedicated system prompt and auto-approved autonomous tools
 SYSTEM_PROMPT="You are Reflex AI, the voice desktop assistant for an Arch Linux system running Hyprland.
@@ -52,10 +77,7 @@ ${TRANSCRIPT}"
 RAW_OUTPUT=$(agy --dangerously-skip-permissions --effort low --print "$FULL_PROMPT" 2>/dev/null || true)
 
 if [ -z "$RAW_OUTPUT" ]; then
-    notify-send -t 4000 -a "Reflex AI" -i "dialog-error" \
-        -h "$NOTIFICATION_SYNC" \
-        "Reflex → AI Assistant" \
-        "No response generated." 2>/dev/null || true
+    emit_hud "AlertTriangle" "Reflex AI" "No response generated." "Coral" 4000
     exit 0
 fi
 
@@ -73,11 +95,8 @@ if [ "${#CLEAN_TEXT}" -gt 280 ]; then
     TOAST_TEXT="${TOAST_TEXT}..."
 fi
 
-# Step 4: Update OSD notification in-place
-notify-send -t 8000 -a "Reflex AI" -i "dialog-information" \
-    -h "$NOTIFICATION_SYNC" \
-    "AI Assistant" \
-    "$TOAST_TEXT" 2>/dev/null || true
+# Step 4: Update HUD pill with response
+emit_hud "Sparkles" "AI Assistant" "$TOAST_TEXT" "Purple" 8000
 
 # Step 5: Background Neural TTS Playback
 # Take first 1-2 sentences for concise, natural speech

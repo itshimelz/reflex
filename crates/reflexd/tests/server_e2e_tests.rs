@@ -21,14 +21,18 @@ async fn test_server_e2e_cycle() {
     let guardrails = GuardrailEngine::default();
 
     let audio = Arc::new(AudioDriver::new().await.expect("audio driver"));
-    let notify = Arc::new(NotificationDriver::new().await.expect("notify driver"));
+    let hud = Arc::new(reflexd::hud_broadcast::HudBroadcaster::new());
+    let notify = Arc::new(NotificationDriver::with_hud(Arc::clone(&hud)));
     let clipboard = Arc::new(reflexd::clipboard::ClipboardDriver::new());
+    let desktop = Arc::new(reflexd::desktop_context::DesktopContext::new());
 
     let ctx = Arc::new(ServerContext {
         hyprland: None, // Standalone test mode without active Hyprland
         audio,
         notify,
+        hud,
         clipboard,
+        desktop,
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,
@@ -152,4 +156,25 @@ async fn test_server_e2e_cycle() {
         .as_str()
         .unwrap()
         .contains("No active audio stream found for 'nonexistentapp'"));
+
+    // 6. Test "scroll down" -> Success
+    let mut stream6 = UnixStream::connect(&socket_path)
+        .await
+        .expect("connect stream 6");
+    stream6
+        .write_all(b"scroll down\n")
+        .await
+        .expect("write command 6");
+    stream6.flush().await.expect("flush command 6");
+
+    let mut reader6 = BufReader::new(stream6);
+    let mut response6 = String::new();
+    reader6
+        .read_line(&mut response6)
+        .await
+        .expect("read response 6");
+
+    let json6: Value = serde_json::from_str(&response6).expect("parse json 6");
+    assert_eq!(json6["status"], "Success");
+    assert!(json6["action"].as_str().unwrap().contains("Scrolled down"));
 }

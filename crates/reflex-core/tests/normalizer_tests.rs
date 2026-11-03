@@ -25,6 +25,8 @@ fn test_split_word_merges() {
     );
     assert_eq!(normalize_transcript("take a screen shot"), "screenshot");
     assert_eq!(normalize_transcript("screen cap this"), "screenshot this");
+    assert_eq!(normalize_transcript("sound sound 50"), "sound 50");
+    assert_eq!(normalize_transcript("volume volume 55"), "volume 55");
 }
 
 #[test]
@@ -42,6 +44,11 @@ fn test_homophone_replacements() {
     assert_eq!(normalize_transcript("flot window"), "float window");
     assert_eq!(normalize_transcript("plot it"), "float it");
     assert_eq!(normalize_transcript("unplot"), "unfloat");
+    assert_eq!(normalize_transcript("Jip them"), "zip them");
+    assert_eq!(normalize_transcript("Unchip all"), "unzip all");
+    assert_eq!(normalize_transcript("Anjip"), "unzip");
+    assert_eq!(normalize_transcript("zip, zip"), "zip");
+    assert_eq!(normalize_transcript("Unjip them all"), "unzip them all");
 }
 
 #[test]

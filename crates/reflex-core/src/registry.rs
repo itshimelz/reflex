@@ -308,3 +308,48 @@ fn levenshtein_distance_le1(s1: &str, s2: &str) -> bool {
 
     true
 }
+
+/// Score matching between a spoken target string and a UI candidate label (0..=100)
+pub fn fuzzy_match_element(target: &str, candidate_name: &str) -> Option<u32> {
+    let t = target.trim().to_lowercase();
+    let c = candidate_name.trim().to_lowercase();
+
+    if t.is_empty() || c.is_empty() {
+        return None;
+    }
+
+    // 1. Exact match
+    if t == c {
+        return Some(100);
+    }
+
+    // 2. Prefix match
+    if c.starts_with(&t) {
+        return Some(90);
+    }
+
+    // 3. Substring match
+    if c.contains(&t) {
+        return Some(80);
+    }
+
+    // 4. Token-level matching
+    let delimiters = [' ', '-', '_', ':', '|', '•', '(', ')', '[', ']'];
+    let c_tokens: Vec<&str> = c.split(&delimiters[..]).filter(|s| !s.is_empty()).collect();
+    for token in &c_tokens {
+        if *token == t {
+            return Some(75);
+        }
+        if t.len() >= 4 && token.len() >= 4 && levenshtein_distance_le1(&t, token) {
+            return Some(70);
+        }
+    }
+
+    // 5. Multi-token target matching: all words in target appear in candidate
+    let t_words: Vec<&str> = t.split_whitespace().collect();
+    if t_words.len() > 1 && t_words.iter().all(|w| c.contains(w)) {
+        return Some(75);
+    }
+
+    None
+}

@@ -102,6 +102,38 @@ fn test_audio_commands() {
         Some(Action::Audio(AudioAction::VolumeSet(75)))
     );
     assert_eq!(
+        parse_action("sound 50"),
+        Some(Action::Audio(AudioAction::VolumeSet(50)))
+    );
+    assert_eq!(
+        parse_action("sound 55"),
+        Some(Action::Audio(AudioAction::VolumeSet(55)))
+    );
+    assert_eq!(
+        parse_action("sound sound 50"),
+        Some(Action::Audio(AudioAction::VolumeSet(50)))
+    );
+    assert_eq!(
+        parse_action("sound sound 55"),
+        Some(Action::Audio(AudioAction::VolumeSet(55)))
+    );
+    assert_eq!(
+        parse_action("set sound to 50"),
+        Some(Action::Audio(AudioAction::VolumeSet(50)))
+    );
+    assert_eq!(
+        parse_action("sound to 55"),
+        Some(Action::Audio(AudioAction::VolumeSet(55)))
+    );
+    assert_eq!(
+        parse_action("sound up"),
+        Some(Action::Audio(AudioAction::VolumeStep(5)))
+    );
+    assert_eq!(
+        parse_action("sound down"),
+        Some(Action::Audio(AudioAction::VolumeStep(-5)))
+    );
+    assert_eq!(
         parse_action("mute"),
         Some(Action::Audio(AudioAction::Mute(true)))
     );
@@ -548,6 +580,8 @@ fn test_clipboard_commands() {
 #[test]
 fn test_confirmation_and_app_lifecycle() {
     assert_eq!(parse_action("confirm"), Some(Action::Confirm));
+    assert_eq!(parse_action("confirmed"), Some(Action::Confirm));
+    assert_eq!(parse_action("confirm it"), Some(Action::Confirm));
     assert_eq!(
         parse_action("open brave"),
         Some(Action::Open("brave".to_string()))
@@ -587,6 +621,204 @@ fn test_confirmation_and_app_lifecycle() {
     assert_eq!(
         parse_action("kill spotify"),
         Some(Action::Close("spotify".to_string()))
+    );
+}
+
+#[test]
+fn test_gui_computer_use_commands() {
+    assert_eq!(
+        parse_action("scroll"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Down,
+            amount: 4,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll down"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Down,
+            amount: 4,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll up"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Up,
+            amount: 4,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll down 5"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Down,
+            amount: 5,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll up 10 lines"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Up,
+            amount: 10,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll left"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Left,
+            amount: 4,
+        }))
+    );
+    assert_eq!(
+        parse_action("scroll right"),
+        Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Right,
+            amount: 4,
+        }))
+    );
+    assert_eq!(
+        parse_action("click submit"),
+        Some(Action::Gui(GuiAction::Click {
+            target: "submit".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("click on next"),
+        Some(Action::Gui(GuiAction::Click {
+            target: "next".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("tap continue"),
+        Some(Action::Gui(GuiAction::Click {
+            target: "continue".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("focus search"),
+        Some(Action::Gui(GuiAction::Focus {
+            target: "search".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("focus email"),
+        Some(Action::Gui(GuiAction::Focus {
+            target: "email".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("focus input username"),
+        Some(Action::Gui(GuiAction::Focus {
+            target: "username".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("press enter"),
+        Some(Action::Gui(GuiAction::PressKey {
+            combo: "enter".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("press escape"),
+        Some(Action::Gui(GuiAction::PressKey {
+            combo: "escape".to_string(),
+        }))
+    );
+    assert_eq!(
+        parse_action("type hello world"),
+        Some(Action::Gui(GuiAction::SetValue {
+            target: "focused".to_string(),
+            value: "hello world".to_string(),
+        }))
+    );
+}
+
+#[test]
+fn test_file_archive_commands() {
+    assert_eq!(
+        parse_action("zip selected"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("zip selected file"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("zip this"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("compress selected"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("compress this"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("unzip selected"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("unzip this"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("extract selected"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("extract here"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: false
+        }))
+    );
+    assert_eq!(
+        parse_action("zip"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("zip them"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("jip them"),
+        Some(Action::File(FileAction::ZipSelected))
+    );
+    assert_eq!(
+        parse_action("unzip"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("unzip all"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("unchip all"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("anjip"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
+    );
+    assert_eq!(
+        parse_action("unjip them all"),
+        Some(Action::File(FileAction::UnzipSelected {
+            into_subfolder: true
+        }))
     );
 }
 

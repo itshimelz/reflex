@@ -1,0 +1,16 @@
+[Unit]
+Description=Reflex HUD: Pure Rust Wayland Layer-Shell Floating Pill
+PartOf=graphical-session.target
+After=graphical-session.target reflexd.service
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/reflex-hud
+Restart=on-failure
+RestartSec=2s
+Environment=WAYLAND_DISPLAY=wayland-1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical-session.target

@@ -36,6 +36,7 @@ pub struct GuardrailEngine {
     pub velocity_window: Duration,
     pub unkillable_classes: HashSet<String>,
     pub confirmation_timeout: Duration,
+    pub clamp_volume: bool,
 
     pub current_volume: u8,
     pub last_volume_time: Instant,
@@ -60,6 +61,7 @@ impl Default for GuardrailEngine {
             velocity_window: Duration::from_millis(500),
             unkillable_classes: unkillable,
             confirmation_timeout: Duration::from_secs(4),
+            clamp_volume: true,
 
             current_volume: 50,
             last_volume_time: Instant::now() - Duration::from_secs(10),
@@ -72,6 +74,12 @@ impl GuardrailEngine {
     /// Evaluate an absolute volume set target (0..=100)
     pub fn evaluate_volume_set(&mut self, requested: u8) -> (u8, GuardrailDecision) {
         let now = Instant::now();
+        if !self.clamp_volume {
+            self.current_volume = requested;
+            self.last_volume_time = now;
+            return (requested, GuardrailDecision::Allowed);
+        }
+
         let mut target = requested;
         let mut decision = GuardrailDecision::Allowed;
 

@@ -2,7 +2,7 @@
 members = [
     "crates/reflex-core",
     "crates/reflexd",
-    "crates/reflex",
+    "crates/reflex", "crates/reflex-hud",
 ]
 resolver = "2"
 

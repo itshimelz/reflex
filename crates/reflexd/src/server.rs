@@ -8,6 +8,7 @@ use reflex_core::ast::*;
 use reflex_core::config::ReflexConfig;
 use reflex_core::earcon::EarconKind;
 use reflex_core::guardrails::{GuardrailDecision, GuardrailEngine};
+use reflex_core::hud::{HudEvent, HudIcon, HudTone};
 use reflex_core::normalizer::normalize_transcript;
 use reflex_core::parser::parse_action;
 use reflex_core::registry::AppRegistry;
@@ -41,7 +42,9 @@ pub struct ServerContext {
     pub hyprland: Option<Arc<HyprlandDriver>>,
     pub audio: Arc<AudioDriver>,
     pub notify: Arc<NotificationDriver>,
+    pub hud: Arc<crate::hud_broadcast::HudBroadcaster>,
     pub clipboard: Arc<crate::clipboard::ClipboardDriver>,
+    pub desktop: Arc<crate::desktop_context::DesktopContext>,
     pub registry: Arc<RwLock<AppRegistry>>,
     pub guardrails: Arc<Mutex<GuardrailEngine>>,
     pub config: ReflexConfig,
@@ -148,11 +151,13 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.close_window_address(&target_address).await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
-                ctx.notify.notify(
-                    "Window Closed",
-                    "Protected window closed after confirmation",
-                    "window-close",
-                    2000,
+                ctx.hud.emit(
+                    HudEvent::new(
+                        HudIcon::Check,
+                        "Window Closed",
+                        HudTone::Emerald,
+                    )
+                    .with_detail("Protected window closed after confirmation"),
                 );
                 IpcResponse {
                     status: "Success".to_string(),
@@ -174,6 +179,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
         Action::Media(media) => {
             let _ = ctx.audio.handle_media(media).await;
             ctx.audio.play_earcon(EarconKind::Success).await;
+            ctx.hud.emit(HudEvent::new(
+                HudIcon::Speaker,
+                format!("{:?}", media),
+                HudTone::Emerald,
+            ));
             IpcResponse {
                 status: "Success".to_string(),
                 reason: None,
@@ -193,14 +203,17 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                 match decision {
                     GuardrailDecision::VelocityClamped { requested, clamped } => {
                         ctx.audio.play_earcon(EarconKind::Warning).await;
-                        ctx.notify.notify(
-                            "⚠️ Volume Clamped",
-                            &format!(
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::ShieldAlert,
+                                "Volume Clamped",
+                                HudTone::Amber,
+                            )
+                            .with_detail(format!(
                                 "Requested {}%, clamped to {}% (+15% velocity limit)",
                                 requested, clamped
-                            ),
-                            "audio-volume-high",
-                            3000,
+                            ))
+                            .with_hold(3000),
                         );
                         IpcResponse {
                             status: "RejectedByPolicy".to_string(),
@@ -212,14 +225,17 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     }
                     GuardrailDecision::CeilingClamped { requested, clamped } => {
                         ctx.audio.play_earcon(EarconKind::Warning).await;
-                        ctx.notify.notify(
-                            "⚠️ Volume Ceiling Enforced",
-                            &format!(
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::ShieldAlert,
+                                "Volume Ceiling Enforced",
+                                HudTone::Amber,
+                            )
+                            .with_detail(format!(
                                 "Requested {}%, clamped to {}% (80% maximum ceiling)",
                                 requested, clamped
-                            ),
-                            "audio-volume-high",
-                            3000,
+                            ))
+                            .with_hold(3000),
                         );
                         IpcResponse {
                             status: "RejectedByPolicy".to_string(),
@@ -231,11 +247,23 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     }
                     _ => {
                         ctx.audio.play_earcon(EarconKind::Success).await;
+                        let icon = if clamped == 0 {
+                            HudIcon::VolumeX
+                        } else if clamped < 30 {
+                            HudIcon::Volume1
+                        } else {
+                            HudIcon::Volume2
+                        };
+                        ctx.hud.emit(HudEvent::new(
+                            icon,
+                            format!("Volume {}%", clamped),
+                            HudTone::Emerald,
+                        ));
                         IpcResponse {
                             status: "Success".to_string(),
                             reason: None,
                             action: Some("VolumeSet".to_string()),
-                            clamped_to: Some(clamped),
+                            clamped_to: None,
                             duration_us: start_time.elapsed().as_micros(),
                         }
                     }
@@ -249,6 +277,15 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                 let _ = ctx.audio.step_volume(clamped_step).await;
                 if let GuardrailDecision::VelocityClamped { clamped, .. } = decision {
                     ctx.audio.play_earcon(EarconKind::Warning).await;
+                    ctx.hud.emit(
+                        HudEvent::new(
+                            HudIcon::ShieldAlert,
+                            "Volume Clamped",
+                            HudTone::Amber,
+                        )
+                        .with_detail(format!("Step clamped to {}%", clamped))
+                        .with_hold(3000),
+                    );
                     IpcResponse {
                         status: "RejectedByPolicy".to_string(),
                         reason: Some("VolumeVelocityExceeded".to_string()),
@@ -258,6 +295,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     }
                 } else {
                     ctx.audio.play_earcon(EarconKind::Success).await;
+                    ctx.hud.emit(HudEvent::new(
+                        HudIcon::Volume2,
+                        format!("Volume {:+}%", clamped_step),
+                        HudTone::Emerald,
+                    ));
                     IpcResponse {
                         status: "Success".to_string(),
                         reason: None,
@@ -270,6 +312,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
             AudioAction::Mute(m) => {
                 let _ = ctx.audio.set_mute(*m).await;
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    if *m { HudIcon::VolumeX } else { HudIcon::Volume2 },
+                    if *m { "Audio Muted" } else { "Audio Unmuted" },
+                    if *m { HudTone::Coral } else { HudTone::Emerald },
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -281,6 +328,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
             AudioAction::MuteToggle => {
                 let _ = ctx.audio.toggle_mute().await;
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::VolumeX,
+                    "Mute Toggled",
+                    HudTone::Emerald,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -292,6 +344,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
             AudioAction::MicMuteToggle => {
                 let _ = ctx.audio.toggle_mic_mute().await;
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Headphones,
+                    "Mic Mute Toggled",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -303,6 +360,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
             AudioAction::SwitchPort => {
                 let _ = ctx.audio.switch_audio_port().await;
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Headphones,
+                    "Audio Port Switched",
+                    HudTone::Emerald,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -363,14 +425,14 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                         } = decision
                         {
                             ctx.audio.play_earcon(EarconKind::ConfirmationChime).await;
-                            ctx.notify.notify(
-                                "⏳ Confirm Close Window?",
-                                &format!(
-                                    "Class '{}' is protected. Say 'confirm' within 4.0s.",
-                                    window_class
-                                ),
-                                "dialog-warning",
-                                4000,
+                            ctx.hud.emit(
+                                HudEvent::new(
+                                    HudIcon::Lock,
+                                    format!("Close {}?", window_class),
+                                    HudTone::Coral,
+                                )
+                                .with_detail("Say 'confirm' within 4.0s")
+                                .with_hold(4000),
                             );
                             return IpcResponse {
                                 status: "AwaitingConfirmation".to_string(),
@@ -384,6 +446,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.close_active_window().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Check,
+                    "Window Closed",
+                    HudTone::Emerald,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -397,6 +464,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.toggle_fullscreen().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Maximize2,
+                    "Fullscreen Toggled",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -410,6 +482,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.toggle_floating().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Move,
+                    "Floating Toggled",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -423,6 +500,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.toggle_pin().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Pin,
+                    "Pin Toggled",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -436,6 +518,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.center_window().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Move,
+                    "Window Centered",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -449,6 +536,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.toggle_split().await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Layers,
+                    "Split Toggled",
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -462,6 +554,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.focus_direction(*dir).await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Move,
+                    format!("Focus {:?}", dir),
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -475,6 +572,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.move_window_direction(*dir).await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Move,
+                    format!("Move {:?}", dir),
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -517,6 +619,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     });
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Layers,
+                    format!("Workspace {}", ws),
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -530,6 +637,11 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     let _ = hypr.move_window_to_workspace(*workspace, *follow).await;
                 }
                 ctx.audio.play_earcon(EarconKind::Success).await;
+                ctx.hud.emit(HudEvent::new(
+                    HudIcon::Layers,
+                    format!("Move Window to Workspace {}", workspace),
+                    HudTone::Cyan,
+                ));
                 IpcResponse {
                     status: "Success".to_string(),
                     reason: None,
@@ -682,6 +794,354 @@ async fn execute_action(action: &Action, ctx: &ServerContext, start_time: Instan
                     action: Some("StripFormatting".to_string()),
                     clamped_to: None,
                     duration_us: start_time.elapsed().as_micros(),
+                }
+            }
+        },
+        Action::Gui(gui_action) => match gui_action {
+            GuiAction::Scroll { direction, amount } => {
+                let active_class = if let Some(ref hypr) = ctx.hyprland {
+                    hypr.fetch_active_window().await.ok().flatten().map(|c| c.class)
+                } else {
+                    None
+                };
+
+                match ctx.desktop.scroll(*direction, *amount, active_class.as_deref()).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Move,
+                                "Scroll",
+                                HudTone::Cyan,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("ScrollFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            GuiAction::Focus { target } => {
+                let active_class = if let Some(ref hypr) = ctx.hyprland {
+                    hypr.fetch_active_window().await.ok().flatten().map(|c| c.class)
+                } else {
+                    None
+                };
+
+                match ctx.desktop.focus(target, active_class.as_deref()).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Check,
+                                "Focus Input",
+                                HudTone::Emerald,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Local focus target not found: {}. Passing through to Tier 3 agent.", e);
+                        IpcResponse {
+                            status: "PassThrough".to_string(),
+                            reason: Some(e),
+                            action: Some(format!("Focus({})", target)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            GuiAction::Click { target } => {
+                let active_class = if let Some(ref hypr) = ctx.hyprland {
+                    hypr.fetch_active_window().await.ok().flatten().map(|c| c.class)
+                } else {
+                    None
+                };
+
+                match ctx.desktop.click(target, active_class.as_deref()).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Check,
+                                "Click Target",
+                                HudTone::Emerald,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Local click target not found: {}. Passing through to Tier 3 agent.", e);
+                        IpcResponse {
+                            status: "PassThrough".to_string(),
+                            reason: Some(e),
+                            action: Some(format!("Click({})", target)),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            GuiAction::SetValue { target, value } => {
+                let active_class = if let Some(ref hypr) = ctx.hyprland {
+                    hypr.fetch_active_window().await.ok().flatten().map(|c| c.class)
+                } else {
+                    None
+                };
+
+                match ctx.desktop.set_value(target, value, active_class.as_deref()).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Check,
+                                "Type Text",
+                                HudTone::Emerald,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("TypeFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            GuiAction::Search { query } => {
+                let active_class = if let Some(ref hypr) = ctx.hyprland {
+                    hypr.fetch_active_window().await.ok().flatten().map(|c| c.class)
+                } else {
+                    None
+                };
+
+                match ctx.desktop.search(query, active_class.as_deref()).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Check,
+                                "Search",
+                                HudTone::Emerald,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("SearchFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            GuiAction::PressKey { combo } => {
+                match ctx.desktop.press_key(combo).await {
+                    Ok(msg) => {
+                        ctx.audio.play_earcon(EarconKind::Success).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::Check,
+                                "Press Key",
+                                HudTone::Emerald,
+                            )
+                            .with_detail(&msg),
+                        );
+                        IpcResponse {
+                            status: "Success".to_string(),
+                            reason: None,
+                            action: Some(msg),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("PressKeyFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+        },
+        Action::File(file_action) => match file_action {
+            FileAction::ZipSelected => {
+                match crate::file_actions::resolve_selected_files().await {
+                    Ok(paths) => match crate::file_actions::zip_selected(&paths).await {
+                        Ok(msg) => {
+                            ctx.audio.play_earcon(EarconKind::Success).await;
+                            ctx.hud.emit(
+                                HudEvent::new(
+                                    HudIcon::Check,
+                                    "Zipped",
+                                    HudTone::Emerald,
+                                )
+                                .with_detail(&msg),
+                            );
+                            IpcResponse {
+                                status: "Success".to_string(),
+                                reason: None,
+                                action: Some(msg),
+                                clamped_to: None,
+                                duration_us: start_time.elapsed().as_micros(),
+                            }
+                        }
+                        Err(e) => {
+                            ctx.audio.play_earcon(EarconKind::Error).await;
+                            ctx.hud.emit(
+                                HudEvent::new(
+                                    HudIcon::AlertTriangle,
+                                    "Zip Failed",
+                                    HudTone::Amber,
+                                )
+                                .with_detail(&e),
+                            );
+                            IpcResponse {
+                                status: "Error".to_string(),
+                                reason: Some(e),
+                                action: Some("ZipFailed".to_string()),
+                                clamped_to: None,
+                                duration_us: start_time.elapsed().as_micros(),
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::AlertTriangle,
+                                "Selection Error",
+                                HudTone::Amber,
+                            )
+                            .with_detail(&e),
+                        );
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("ResolveFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
+                }
+            }
+            FileAction::UnzipSelected { into_subfolder } => {
+                match crate::file_actions::resolve_selected_files().await {
+                    Ok(paths) => {
+                        match crate::file_actions::unzip_selected(&paths, *into_subfolder).await {
+                            Ok(msg) => {
+                                ctx.audio.play_earcon(EarconKind::Success).await;
+                                ctx.hud.emit(
+                                    HudEvent::new(
+                                        HudIcon::Check,
+                                        "Extracted",
+                                        HudTone::Cyan,
+                                    )
+                                    .with_detail(&msg),
+                                );
+                                IpcResponse {
+                                    status: "Success".to_string(),
+                                    reason: None,
+                                    action: Some(msg),
+                                    clamped_to: None,
+                                    duration_us: start_time.elapsed().as_micros(),
+                                }
+                            }
+                            Err(e) => {
+                                ctx.audio.play_earcon(EarconKind::Error).await;
+                                ctx.hud.emit(
+                                    HudEvent::new(
+                                        HudIcon::AlertTriangle,
+                                        "Extract Failed",
+                                        HudTone::Amber,
+                                    )
+                                    .with_detail(&e),
+                                );
+                                IpcResponse {
+                                    status: "Error".to_string(),
+                                    reason: Some(e),
+                                    action: Some("UnzipFailed".to_string()),
+                                    clamped_to: None,
+                                    duration_us: start_time.elapsed().as_micros(),
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        ctx.audio.play_earcon(EarconKind::Error).await;
+                        ctx.hud.emit(
+                            HudEvent::new(
+                                HudIcon::AlertTriangle,
+                                "Selection Error",
+                                HudTone::Amber,
+                            )
+                            .with_detail(&e),
+                        );
+                        IpcResponse {
+                            status: "Error".to_string(),
+                            reason: Some(e),
+                            action: Some("ResolveFailed".to_string()),
+                            clamped_to: None,
+                            duration_us: start_time.elapsed().as_micros(),
+                        }
+                    }
                 }
             }
         },

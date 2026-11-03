@@ -7,7 +7,7 @@
 #   curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
 #
 # Options (via environment variables or flags):
-#   REFLEX_VERSION=v0.1.2   Install a specific release version (default: latest)
+#   REFLEX_VERSION=v1.0.0   Install a specific release version (default: latest)
 #   INSTALL_DIR=~/.local/bin Custom destination directory for binaries
 #   SKIP_SERVICE=1          Skip systemd user service setup
 #   SKIP_CONFIG=1           Skip default config.toml creation
@@ -105,7 +105,7 @@ if [ -z "$VERSION" ]; then
 
     # Hard fallback to current stable tag
     if [ -z "$VERSION" ]; then
-        VERSION="v0.1.2"
+        VERSION="v1.0.0"
         log_warn "Could not resolve latest release tag automatically. Falling back to default: ${VERSION}"
     fi
 fi
@@ -185,6 +185,11 @@ install -m 755 "${EXTRACTED_DIR}/reflexd" "${BIN_DIR}/reflexd"
 log_success "Installed ${BOLD}reflex${RESET} -> ${BIN_DIR}/reflex"
 log_success "Installed ${BOLD}reflexd${RESET} -> ${BIN_DIR}/reflexd"
 
+if [ -f "${EXTRACTED_DIR}/reflex-hud" ]; then
+    install -m 755 "${EXTRACTED_DIR}/reflex-hud" "${BIN_DIR}/reflex-hud"
+    log_success "Installed ${BOLD}reflex-hud${RESET} -> ${BIN_DIR}/reflex-hud"
+fi
+
 if [ -f "${EXTRACTED_DIR}/reflex-agent-fallback" ]; then
     install -m 755 "${EXTRACTED_DIR}/reflex-agent-fallback" "${BIN_DIR}/reflex-agent-fallback"
     log_success "Installed ${BOLD}reflex-agent-fallback${RESET} -> ${BIN_DIR}/reflex-agent-fallback"
@@ -196,6 +201,7 @@ if [ -d "${HOME}/.cargo/bin" ] && [ "${BIN_DIR}" != "${HOME}/.cargo/bin" ]; then
         *":${HOME}/.cargo/bin:"*)
             ln -sf "${BIN_DIR}/reflex" "${HOME}/.cargo/bin/reflex" 2>/dev/null || true
             ln -sf "${BIN_DIR}/reflexd" "${HOME}/.cargo/bin/reflexd" 2>/dev/null || true
+            ln -sf "${BIN_DIR}/reflex-hud" "${HOME}/.cargo/bin/reflex-hud" 2>/dev/null || true
             ;;
     esac
 fi
@@ -217,32 +223,41 @@ fi
 
 # 8. Setup Systemd User Service
 if [ "${SKIP_SERVICE:-0}" -ne 1 ] && command -v systemctl >/dev/null 2>&1; then
-    log_step "Setting up systemd user service..."
+    log_step "Setting up systemd user services..."
+    mkdir -p "$SYSTEMD_USER_DIR"
+
+    # reflexd daemon service
     SERVICE_SRC="${EXTRACTED_DIR}/systemd/reflexd.service"
     if [ ! -f "$SERVICE_SRC" ] && [ -f "${EXTRACTED_DIR}/reflexd.service" ]; then
         SERVICE_SRC="${EXTRACTED_DIR}/reflexd.service"
     fi
 
     if [ -f "$SERVICE_SRC" ]; then
-        mkdir -p "$SYSTEMD_USER_DIR"
-        # Substitute ExecStart with the actual installed binary path
         sed "s|ExecStart=.*|ExecStart=${BIN_DIR}/reflexd|" "$SERVICE_SRC" > "${SYSTEMD_USER_DIR}/reflexd.service"
         log_success "Installed service file -> ${SYSTEMD_USER_DIR}/reflexd.service"
+    fi
 
-        # Reload systemd user daemon
-        systemctl --user daemon-reload 2>/dev/null || true
+    # reflex-hud overlay service
+    HUD_SERVICE_SRC="${EXTRACTED_DIR}/systemd/reflex-hud.service"
+    if [ ! -f "$HUD_SERVICE_SRC" ] && [ -f "${EXTRACTED_DIR}/reflex-hud.service" ]; then
+        HUD_SERVICE_SRC="${EXTRACTED_DIR}/reflex-hud.service"
+    fi
 
-        # If systemd user manager is active, enable and start the service
-        if systemctl --user is-system-running >/dev/null 2>&1 || [ -n "${XDG_RUNTIME_DIR:-}" ]; then
-            systemctl --user enable --now reflexd.service 2>/dev/null || true
-            if systemctl --user is-active --quiet reflexd.service 2>/dev/null; then
-                log_success "Daemon service reflexd.service is active and running!"
-            else
-                log_info "Service registered. Start it anytime with: systemctl --user start reflexd.service"
-            fi
-        else
-            log_info "Systemd user session not active. Enable anytime with: systemctl --user enable --now reflexd.service"
-        fi
+    if [ -f "$HUD_SERVICE_SRC" ]; then
+        sed "s|ExecStart=.*|ExecStart=${BIN_DIR}/reflex-hud|" "$HUD_SERVICE_SRC" > "${SYSTEMD_USER_DIR}/reflex-hud.service"
+        log_success "Installed service file -> ${SYSTEMD_USER_DIR}/reflex-hud.service"
+    fi
+
+    # Reload systemd user daemon
+    systemctl --user daemon-reload 2>/dev/null || true
+
+    # If systemd user manager is active, enable and start the services
+    if systemctl --user is-system-running >/dev/null 2>&1 || [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+        systemctl --user enable --now reflexd.service 2>/dev/null || true
+        systemctl --user enable --now reflex-hud.service 2>/dev/null || true
+        log_success "Reflex daemon and HUD services registered and active!"
+    else
+        log_info "Enable anytime with: systemctl --user enable --now reflexd.service reflex-hud.service"
     fi
 fi
 

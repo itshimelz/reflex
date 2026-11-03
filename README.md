@@ -7,12 +7,24 @@
 [![Audio](https://img.shields.io/badge/Audio-PipeWire%20%2F%20WirePlumber-green.svg)](https://pipewire.org/)
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE)
 
-**Reflex** is a high-speed resident automation daemon (`reflexd`) and CLI client (`reflex`) engineered in pure Rust. It delivers sub-5ms deterministic command dispatch, single-instance application focus/launch, safety guardrails, procedural earcon synthesis, and seamless autonomous AI fallback for power users on Wayland / Hyprland.
+**Reflex** is a high-speed resident automation daemon (`reflexd`), Wayland floating HUD pill overlay (`reflex-hud`), and CLI client (`reflex`) engineered in pure Rust. It delivers sub-5ms deterministic command dispatch, single-instance application focus/launch, safety guardrails, procedural earcon synthesis, floating obsidian glass HUD feedback, and seamless autonomous AI fallback for power users on Wayland / Hyprland.
 
 ---
 
 ## 🚀 Key Highlights & Architecture
 
+- **Pure Rust Wayland Layer-Shell HUD Pill (`reflex-hud`)**:
+  - **Hex-Matched Obsidian Glass**: Deep dark plate (`rgba(17, 17, 20, 0.94)`), micro-rim highlight (`rgba(255, 255, 255, 0.12)`), and soft drop shadow.
+  - **Closed-Form Analytical Spring Physics**: Exact damped harmonic oscillator dynamics (`Spec::new(0.30, 0.15)` bounce and `Spec::new(0.30, 0.0)` opacity fade) mirroring Hex's dynamic island.
+  - **Lucide React Vector SVG Icons**: Crisp vector glyphs rendered via `tiny-skia` / `resvg` (strictly zero emoji fonts).
+  - **Replaced Desktop Notifications**: Freedesktop notification bubbles (`org.freedesktop.Notifications`) are completely eliminated in favor of instant 60 FPS floating HUD pills with 5 semantic accent tones:
+    - 🟢 **Emerald**: Deterministic success, audio volume levels, unmute, screenshots.
+    - 🔵 **Cyan**: Workspace switching, directional tiling navigation, app launches.
+    - 🟡 **Amber**: Guardrail limits (volume ceiling & velocity limit enforcement).
+    - 🔴 **Coral**: Safety confirmations & protected window closures.
+    - 🟣 **Purple**: Autonomous AI fallback dispatch (`reflex-agent-fallback`).
+  - **100% Click-Through Overlay**: Mapped via `zwlr_layer_shell_v1` on `Layer::Overlay` with an empty `wl_region` input mask, ensuring windows beneath receive full clicks and pointer events without obstruction.
+  - **0% Idle CPU Overhead**: Canvas clears to 100% transparent and redraw ticks completely sleep when idle.
 - **Sub-Millisecond Pure Rust Hot Path**: Zero shell subprocesses (`hyprctl`, `wpctl`, and `playerctl` are strictly eliminated from the execution path). Communicates directly over local Unix domain sockets and D-Bus.
 - **Hyprland Dual-Socket Protocol**: Direct connection to Hyprland's `.socket.sock` for zero-latency command evaluation, paired with asynchronous decoupled verification on `.socket2.sock`.
 - **4-Tier Application Registry**: Fast hybrid resolver for desktop apps and Chromium/Brave PWAs:
@@ -62,13 +74,15 @@ reflex/
 ├── config/
 │   └── default_config.toml       # Reference configuration template
 ├── crates/
-│   ├── reflex-core/              # AST, parser, normalizer, registry, guardrails
-│   ├── reflexd/                  # High-performance resident daemon & drivers
+│   ├── reflex-core/              # AST, parser, normalizer, registry, guardrails, HUD models
+│   ├── reflexd/                  # High-performance resident daemon, drivers & HUD broadcaster
+│   ├── reflex-hud/               # Pure Rust Wayland layer-shell obsidian HUD pill overlay
 │   └── reflex/                   # Thin sub-millisecond CLI client
 ├── scripts/
-│   └── reflex-agent-fallback     # OSD-synchronized cognitive AI fallback runner
+│   └── reflex-agent-fallback     # HUD-synchronized cognitive AI fallback runner
 ├── systemd/
-│   └── reflexd.service           # Systemd user service unit
+│   ├── reflexd.service           # Systemd user daemon service unit
+│   └── reflex-hud.service        # Systemd user HUD overlay service unit
 └── README.md                     # Project documentation
 ```
 
@@ -78,7 +92,7 @@ reflex/
 
 ### ⚡ Quick Install (Pre-compiled Binary)
 
-Install the latest release bundle (`reflex`, `reflexd`, `reflex-agent-fallback`, systemd service, and default config) in seconds:
+Install the latest release bundle (`reflex`, `reflexd`, `reflex-hud`, `reflex-agent-fallback`, systemd user services, and default config) in seconds:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
@@ -87,7 +101,7 @@ curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | b
 Custom options (version, destination directory, or skipping service/config):
 ```bash
 # Install specific version to ~/.local/bin
-REFLEX_VERSION=v0.1.2 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
+REFLEX_VERSION=v1.0.0 INSTALL_DIR=~/.local/bin curl -sSL https://raw.githubusercontent.com/itshimelz/reflex/main/install.sh | bash
 ```
 
 ---
@@ -154,7 +168,7 @@ cd reflex
 cargo build --release
 
 # Copy binaries to your PATH
-cp target/release/reflex target/release/reflexd ~/.cargo/bin/
+cp target/release/reflex target/release/reflexd target/release/reflex-hud ~/.cargo/bin/
 
 # Install the fallback script
 cp scripts/reflex-agent-fallback ~/.local/bin/
@@ -192,21 +206,39 @@ studio    = "jetbrains-studio"
 idea      = "jetbrains-idea"
 ```
 
-### 4. Enable Systemd User Service
+### 4. Enable Systemd User Services
 
 ```bash
-# Copy and enable systemd user service
+# Copy and enable systemd user services
 mkdir -p ~/.config/systemd/user
-cp systemd/reflexd.service ~/.config/systemd/user/
+cp systemd/reflexd.service systemd/reflex-hud.service ~/.config/systemd/user/
 
 systemctl --user daemon-reload
-systemctl --user enable --now reflexd.service
+systemctl --user enable --now reflexd.service reflex-hud.service
 
-# Verify service is running
-systemctl --user status reflexd.service
+# Verify services are running
+systemctl --user status reflexd.service reflex-hud.service
 ```
 
-### 5. Hyprland Keybind Integration
+### 5. Running the HUD Overlay Manually or in Demo Mode
+
+While `reflex-hud` runs automatically via systemd, you can also launch it with custom options:
+
+```bash
+# Default listener mode (listens on $XDG_RUNTIME_DIR/reflex-hud.sock)
+reflex-hud
+
+# Custom top margin (e.g. 72px) and hold duration (e.g. 2500ms)
+reflex-hud --margin-top 72 --hold 2500
+
+# Force reduced motion mode (instant opacity transitions without spring overshoot)
+reflex-hud --reduce-motion
+
+# Continuous demo cycle mode (cycles all Lucide icons and semantic color tones)
+reflex-hud --demo
+```
+
+### 6. Hyprland Keybind Integration
 
 Wire Push-to-Talk commands and Hex dictation into your Hyprland configuration.
 

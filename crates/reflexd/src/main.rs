@@ -51,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut guardrails = GuardrailEngine::default();
     guardrails.volume_ceiling = config.volume.ceiling;
     guardrails.max_step_velocity = config.volume.max_step_velocity;
+    guardrails.clamp_volume = config.volume.clamp_volume;
     guardrails.confirmation_timeout =
         Duration::from_secs_f32(config.guardrails.confirmation_timeout_secs);
     guardrails.unkillable_classes = config
@@ -60,9 +61,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .cloned()
         .collect();
 
-    // 4. Initialize Drivers
+    // 4. Initialize Drivers & HUD Broadcaster
+    let hud = Arc::new(reflexd::hud_broadcast::HudBroadcaster::new());
+    let hud_for_server = Arc::clone(&hud);
+    let hud_sock_path = reflex_core::hud::get_hud_socket_path();
+    tokio::spawn(async move {
+        if let Err(e) = reflexd::hud_broadcast::run_hud_server(hud_for_server, hud_sock_path).await {
+            error!("HUD broadcast server error: {}", e);
+        }
+    });
+
     let audio = Arc::new(AudioDriver::new().await?);
-    let notify = Arc::new(NotificationDriver::new().await?);
+    let notify = Arc::new(NotificationDriver::with_hud(Arc::clone(&hud)));
 
     let hyprland = match HyprlandDriver::new() {
         Ok(driver) => {
@@ -79,11 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // 5. Build Server Context
     let clipboard = Arc::new(reflexd::clipboard::ClipboardDriver::new());
+    let desktop = Arc::new(reflexd::desktop_context::DesktopContext::new());
     let ctx = Arc::new(ServerContext {
         hyprland,
         audio,
         notify,
+        hud,
         clipboard,
+        desktop,
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,

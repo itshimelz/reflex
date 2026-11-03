@@ -87,7 +87,10 @@ pub fn parse_action(input: &str) -> Option<Action> {
     }
 
     // 1. Confirmation
-    if clean == "confirm" {
+    if matches!(
+        clean.as_str(),
+        "confirm" | "confirmed" | "yes confirm" | "confirm it" | "i confirm"
+    ) {
         return Some(Action::Confirm);
     }
 
@@ -147,15 +150,15 @@ pub fn parse_action(input: &str) -> Option<Action> {
 
     // 3. Audio actions
     match clean.as_str() {
-        "volume up" | "louder" | "turn it up" => {
+        "volume up" | "sound up" | "louder" | "turn it up" | "turn sound up" | "turn volume up" => {
             return Some(Action::Audio(AudioAction::VolumeStep(5)))
         }
-        "volume down" | "quieter" | "softer" | "turn it down" => {
+        "volume down" | "sound down" | "quieter" | "softer" | "turn it down" | "turn sound down" | "turn volume down" => {
             return Some(Action::Audio(AudioAction::VolumeStep(-5)))
         }
-        "mute" | "mute audio" | "silence" => return Some(Action::Audio(AudioAction::Mute(true))),
-        "unmute" | "unmute audio" => return Some(Action::Audio(AudioAction::Mute(false))),
-        "toggle mute" => return Some(Action::Audio(AudioAction::MuteToggle)),
+        "mute" | "mute audio" | "mute sound" | "silence" => return Some(Action::Audio(AudioAction::Mute(true))),
+        "unmute" | "unmute audio" | "unmute sound" => return Some(Action::Audio(AudioAction::Mute(false))),
+        "toggle mute" | "toggle sound" => return Some(Action::Audio(AudioAction::MuteToggle)),
         "toggle mic" | "mute mic" | "unmute mic" => {
             return Some(Action::Audio(AudioAction::MicMuteToggle))
         }
@@ -180,7 +183,10 @@ pub fn parse_action(input: &str) -> Option<Action> {
         _ => {}
     }
 
-    if let Some(rest) = clean.strip_prefix("volume up") {
+    if let Some(rest) = clean
+        .strip_prefix("volume up")
+        .or_else(|| clean.strip_prefix("sound up"))
+    {
         let trimmed = rest
             .trim()
             .trim_start_matches("by")
@@ -191,7 +197,10 @@ pub fn parse_action(input: &str) -> Option<Action> {
             return Some(Action::Audio(AudioAction::VolumeStep(n as i8)));
         }
     }
-    if let Some(rest) = clean.strip_prefix("volume down") {
+    if let Some(rest) = clean
+        .strip_prefix("volume down")
+        .or_else(|| clean.strip_prefix("sound down"))
+    {
         let trimmed = rest
             .trim()
             .trim_start_matches("by")
@@ -202,26 +211,24 @@ pub fn parse_action(input: &str) -> Option<Action> {
             return Some(Action::Audio(AudioAction::VolumeStep(-(n as i8))));
         }
     }
-    if let Some(rest) = clean.strip_prefix("set volume") {
-        let trimmed = rest
-            .trim()
-            .trim_start_matches("to")
-            .trim()
-            .trim_end_matches('%')
-            .trim();
-        if let Some(n) = parse_number(trimmed) {
-            return Some(Action::Audio(AudioAction::VolumeSet(n)));
-        }
-    }
-    if let Some(rest) = clean.strip_prefix("volume") {
-        let trimmed = rest
-            .trim()
-            .trim_start_matches("to")
-            .trim()
-            .trim_end_matches('%')
-            .trim();
-        if let Some(n) = parse_number(trimmed) {
-            return Some(Action::Audio(AudioAction::VolumeSet(n)));
+    for prefix in &[
+        "set volume",
+        "set sound",
+        "volume volume",
+        "sound sound",
+        "volume",
+        "sound",
+    ] {
+        if let Some(rest) = clean.strip_prefix(prefix) {
+            let trimmed = rest
+                .trim()
+                .trim_start_matches("to")
+                .trim()
+                .trim_end_matches('%')
+                .trim();
+            if let Some(n) = parse_number(trimmed) {
+                return Some(Action::Audio(AudioAction::VolumeSet(n)));
+            }
         }
     }
 
@@ -497,6 +504,283 @@ pub fn parse_action(input: &str) -> Option<Action> {
         | "strip clipboard formatting"
         | "clean clipboard"
         | "plain clipboard" => return Some(Action::Clipboard(ClipboardAction::StripFormatting)),
+        _ => {}
+    }
+
+    // 6.5 GUI & Computer-Use Actions (Scroll, Focus, Click, Press Key, Set Value)
+    if clean == "scroll" || clean == "scroll down" || clean == "page down" {
+        return Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Down,
+            amount: 4,
+        }));
+    }
+    if clean == "scroll up" || clean == "page up" {
+        return Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Up,
+            amount: 4,
+        }));
+    }
+    if clean == "scroll left" {
+        return Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Left,
+            amount: 4,
+        }));
+    }
+    if clean == "scroll right" {
+        return Some(Action::Gui(GuiAction::Scroll {
+            direction: GuiScrollDirection::Right,
+            amount: 4,
+        }));
+    }
+
+    if let Some(rest) = clean.strip_prefix("scroll ") {
+        let trimmed = rest.trim();
+        let (dir, remainder) = if let Some(r) = trimmed.strip_prefix("down") {
+            (GuiScrollDirection::Down, r.trim())
+        } else if let Some(r) = trimmed.strip_prefix("up") {
+            (GuiScrollDirection::Up, r.trim())
+        } else if let Some(r) = trimmed.strip_prefix("left") {
+            (GuiScrollDirection::Left, r.trim())
+        } else if let Some(r) = trimmed.strip_prefix("right") {
+            (GuiScrollDirection::Right, r.trim())
+        } else {
+            (GuiScrollDirection::Down, trimmed)
+        };
+
+        let clean_num_str = remainder
+            .trim_start_matches("by")
+            .trim()
+            .trim_end_matches("lines")
+            .trim_end_matches("pages")
+            .trim();
+        let amount = if clean_num_str.is_empty() {
+            4
+        } else {
+            parse_number(clean_num_str).unwrap_or(4) as u32
+        };
+
+        return Some(Action::Gui(GuiAction::Scroll {
+            direction: dir,
+            amount,
+        }));
+    }
+
+    // Click / Tap
+    if let Some(rest) = clean.strip_prefix("click ") {
+        let target = rest.trim().trim_start_matches("on ").trim();
+        if !target.is_empty() {
+            return Some(Action::Gui(GuiAction::Click {
+                target: target.to_string(),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("tap ") {
+        let target = rest.trim().trim_start_matches("on ").trim();
+        if !target.is_empty() {
+            return Some(Action::Gui(GuiAction::Click {
+                target: target.to_string(),
+            }));
+        }
+    }
+
+    // Focus input/field
+    if let Some(rest) = clean
+        .strip_prefix("focus input ")
+        .or_else(|| clean.strip_prefix("focus field "))
+        .or_else(|| clean.strip_prefix("focus box "))
+        .or_else(|| clean.strip_prefix("focus element "))
+    {
+        let target = rest.trim();
+        if !target.is_empty() {
+            return Some(Action::Gui(GuiAction::Focus {
+                target: target.to_string(),
+            }));
+        }
+    }
+    if clean == "focus search"
+        || clean == "focus search bar"
+        || clean == "focus search box"
+        || clean == "focus email"
+        || clean == "focus username"
+        || clean == "focus password"
+        || clean == "focus comment"
+    {
+        let target = clean.trim_start_matches("focus ").trim();
+        return Some(Action::Gui(GuiAction::Focus {
+            target: target.to_string(),
+        }));
+    }
+
+    // One-shot Search: "search for <query>", "search <query>"
+    if let Some(rest) = clean.strip_prefix("search for ") {
+        let q = rest.trim();
+        if !q.is_empty() {
+            return Some(Action::Gui(GuiAction::Search {
+                query: q.to_string(),
+            }));
+        }
+    } else if let Some(rest) = clean.strip_prefix("search ") {
+        let q = rest.trim();
+        if !q.is_empty() && q != "bar" && q != "box" && q != "input" {
+            return Some(Action::Gui(GuiAction::Search {
+                query: q.to_string(),
+            }));
+        }
+    }
+
+    // Press key
+    if let Some(rest) = clean
+        .strip_prefix("press key ")
+        .or_else(|| clean.strip_prefix("send key "))
+    {
+        let key = rest.trim();
+        if !key.is_empty() {
+            return Some(Action::Gui(GuiAction::PressKey {
+                combo: key.to_string(),
+            }));
+        }
+    }
+    if let Some(rest) = clean.strip_prefix("press ") {
+        let key = rest.trim();
+        if matches!(
+            key,
+            "enter"
+                | "return"
+                | "escape"
+                | "esc"
+                | "tab"
+                | "backspace"
+                | "space"
+                | "delete"
+                | "up"
+                | "down"
+                | "left"
+                | "right"
+        ) {
+            return Some(Action::Gui(GuiAction::PressKey {
+                combo: key.to_string(),
+            }));
+        }
+    }
+
+    // Set value / type into focused target
+    if let Some(rest) = clean.strip_prefix("type ") {
+        let text = rest.trim();
+        if !text.is_empty()
+            && text != "clipboard"
+            && text != "it"
+            && text != "that"
+            && text != "buffer"
+        {
+            return Some(Action::Gui(GuiAction::SetValue {
+                target: "focused".to_string(),
+                value: text.to_string(),
+            }));
+        }
+    }
+
+    // File / Archive actions: zip, unzip, extract
+    match clean.as_str() {
+        "zip"
+        | "zip selected"
+        | "zip selected file"
+        | "zip selected files"
+        | "zip this"
+        | "zip this file"
+        | "zip this folder"
+        | "zip it"
+        | "zip them"
+        | "zip all"
+        | "zip them all"
+        | "zip all of them"
+        | "zip these"
+        | "zip these files"
+        | "zip file"
+        | "zip files"
+        | "compress"
+        | "compress selected"
+        | "compress this"
+        | "compress this file"
+        | "compress this folder"
+        | "compress it"
+        | "compress them"
+        | "compress all"
+        | "compress them all"
+        | "compress all of them"
+        | "compress these"
+        | "compress file"
+        | "compress files"
+        // Common ASR mispronunciations without normalizer:
+        | "jip"
+        | "jip them"
+        | "jip all"
+        | "jip them all"
+        | "jip this"
+        | "jip it"
+        | "jip selected" => return Some(Action::File(FileAction::ZipSelected)),
+
+        "unzip"
+        | "unzip selected"
+        | "unzip selected file"
+        | "unzip selected files"
+        | "unzip this"
+        | "unzip this file"
+        | "unzip it"
+        | "unzip them"
+        | "unzip all"
+        | "unzip them all"
+        | "unzip all of them"
+        | "unzip these"
+        | "unzip these files"
+        | "unzip file"
+        | "unzip files"
+        | "unzip archive"
+        | "extract"
+        | "extract selected"
+        | "extract selected file"
+        | "extract selected files"
+        | "extract this"
+        | "extract this file"
+        | "extract it"
+        | "extract them"
+        | "extract all"
+        | "extract them all"
+        | "extract all of them"
+        | "extract these"
+        | "extract file"
+        | "extract files"
+        | "extract archive"
+        // Common ASR mispronunciations without normalizer:
+        | "unjip"
+        | "unjip them"
+        | "unjip all"
+        | "unjip them all"
+        | "unjip this"
+        | "unjip it"
+        | "anjip"
+        | "anjip them"
+        | "anjip all"
+        | "anjip them all"
+        | "unchip"
+        | "unchip them"
+        | "unchip all"
+        | "unchip them all" => {
+            return Some(Action::File(FileAction::UnzipSelected {
+                into_subfolder: true,
+            }))
+        }
+
+        "extract here"
+        | "unzip here"
+        | "extract in place"
+        | "unzip in place"
+        | "unjip here"
+        | "unchip here"
+        | "anjip here" => {
+            return Some(Action::File(FileAction::UnzipSelected {
+                into_subfolder: false,
+            }))
+        }
         _ => {}
     }
 

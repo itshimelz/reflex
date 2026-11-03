@@ -79,6 +79,46 @@ pub enum ClipboardAction {
     StripFormatting,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiScrollDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiAction {
+    Scroll {
+        direction: GuiScrollDirection,
+        amount: u32,
+    },
+    Focus {
+        target: String,
+    },
+    Click {
+        target: String,
+    },
+    SetValue {
+        target: String,
+        value: String,
+    },
+    Search {
+        query: String,
+    },
+    PressKey {
+        combo: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FileAction {
+    ZipSelected,
+    UnzipSelected {
+        into_subfolder: bool,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Action {
     Media(MediaAction),
@@ -87,6 +127,8 @@ pub enum Action {
     Window(WindowAction),
     Screenshot(ScreenshotAction),
     Clipboard(ClipboardAction),
+    Gui(GuiAction),
+    File(FileAction),
     Open(String),
     Close(String),
     MoveNamed {
