@@ -1,18 +1,13 @@
 package com.reflex.remote.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -22,72 +17,68 @@ enum class ThemeMode {
     DARK
 }
 
-val PixelLightColorScheme = lightColorScheme(
-    primary = PixelPrimaryLight,
-    onPrimary = PixelOnPrimaryLight,
-    primaryContainer = PixelPrimaryContainerLight,
-    onPrimaryContainer = PixelOnPrimaryContainerLight,
-    secondary = PixelSecondaryLight,
-    onSecondary = PixelOnSecondaryLight,
-    secondaryContainer = PixelSecondaryContainerLight,
-    onSecondaryContainer = PixelOnSecondaryContainerLight,
-    tertiary = PixelTertiaryLight,
-    onTertiary = PixelOnTertiaryLight,
-    tertiaryContainer = PixelTertiaryContainerLight,
-    onTertiaryContainer = PixelOnTertiaryContainerLight,
-    error = PixelErrorLight,
-    onError = PixelOnErrorLight,
-    errorContainer = PixelErrorContainerLight,
-    onErrorContainer = PixelOnErrorContainerLight,
-    background = PixelBackgroundLight,
-    onBackground = PixelOnBackgroundLight,
-    surface = PixelSurfaceLight,
-    onSurface = PixelOnSurfaceLight,
-    surfaceVariant = PixelSurfaceVariantLight,
-    onSurfaceVariant = PixelOnSurfaceVariantLight,
-    surfaceDim = PixelSurfaceDimLight,
-    surfaceBright = PixelSurfaceBrightLight,
-    surfaceContainerLowest = PixelSurfaceContainerLowestLight,
-    surfaceContainerLow = PixelSurfaceContainerLowLight,
-    surfaceContainer = PixelSurfaceContainerLight,
-    surfaceContainerHigh = PixelSurfaceContainerHighLight,
-    surfaceContainerHighest = PixelSurfaceContainerHighestLight,
-    outline = PixelOutlineLight,
-    outlineVariant = PixelOutlineVariantLight
+val OtoDarkColorScheme = darkColorScheme(
+    primary = OtoPlayerPlayBtnBg,
+    onPrimary = OtoPlayerPlayBtnIcon,
+    primaryContainer = OtoActiveNavPill,
+    onPrimaryContainer = OtoActiveNavIcon,
+    secondary = OtoHistoryIcon,
+    onSecondary = OtoDarkBackground,
+    secondaryContainer = OtoHistoryBg,
+    onSecondaryContainer = OtoHistoryIcon,
+    tertiary = OtoShuffleIcon,
+    onTertiary = OtoDarkBackground,
+    tertiaryContainer = OtoShuffleBg,
+    onTertiaryContainer = OtoShuffleIcon,
+    error = OtoErrorRed,
+    onError = Color.White,
+    errorContainer = Color(0xFF450A0A),
+    onErrorContainer = Color(0xFFFCA5A5),
+    background = OtoDarkBackground,
+    onBackground = OtoTextPrimary,
+    surface = OtoDarkSurface,
+    onSurface = OtoTextPrimary,
+    surfaceVariant = OtoDarkSurfaceVariant,
+    onSurfaceVariant = OtoTextSecondary,
+    surfaceContainerLowest = OtoDarkBackground,
+    surfaceContainerLow = OtoDarkCard,
+    surfaceContainer = OtoDarkSurface,
+    surfaceContainerHigh = OtoDarkElevated,
+    surfaceContainerHighest = Color(0xFF2C374D),
+    outline = OtoDarkOutline,
+    outlineVariant = OtoDarkOutlineVariant
 )
 
-val PixelDarkColorScheme = darkColorScheme(
-    primary = PixelPrimaryDark,
-    onPrimary = PixelOnPrimaryDark,
-    primaryContainer = PixelPrimaryContainerDark,
-    onPrimaryContainer = PixelOnPrimaryContainerDark,
-    secondary = PixelSecondaryDark,
-    onSecondary = PixelOnSecondaryDark,
-    secondaryContainer = PixelSecondaryContainerDark,
-    onSecondaryContainer = PixelOnSecondaryContainerDark,
-    tertiary = PixelTertiaryDark,
-    onTertiary = PixelOnTertiaryDark,
-    tertiaryContainer = PixelTertiaryContainerDark,
-    onTertiaryContainer = PixelOnTertiaryContainerDark,
-    error = PixelErrorDark,
-    onError = PixelOnErrorDark,
-    errorContainer = PixelErrorContainerDark,
-    onErrorContainer = PixelOnErrorContainerDark,
-    background = PixelBackgroundDark,
-    onBackground = PixelOnBackgroundDark,
-    surface = PixelSurfaceDark,
-    onSurface = PixelOnSurfaceDark,
-    surfaceVariant = PixelSurfaceVariantDark,
-    onSurfaceVariant = PixelOnSurfaceVariantDark,
-    surfaceDim = PixelSurfaceDimDark,
-    surfaceBright = PixelSurfaceBrightDark,
-    surfaceContainerLowest = PixelSurfaceContainerLowestDark,
-    surfaceContainerLow = PixelSurfaceContainerLowDark,
-    surfaceContainer = PixelSurfaceContainerDark,
-    surfaceContainerHigh = PixelSurfaceContainerHighDark,
-    surfaceContainerHighest = PixelSurfaceContainerHighestDark,
-    outline = PixelOutlineDark,
-    outlineVariant = PixelOutlineVariantDark
+val OtoLightColorScheme = lightColorScheme(
+    primary = Color(0xFF005DA6),
+    onPrimary = Color.White,
+    primaryContainer = OtoLightActiveNavPill,
+    onPrimaryContainer = OtoLightActiveNavIcon,
+    secondary = Color(0xFF18355D),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD6E3FF),
+    onSecondaryContainer = Color(0xFF001D36),
+    tertiary = Color(0xFF00684A),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFA5F3D1),
+    onTertiaryContainer = Color(0xFF002114),
+    error = Color(0xFFBA1A1A),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    background = OtoLightBackground,
+    onBackground = OtoLightTextPrimary,
+    surface = OtoLightSurface,
+    onSurface = OtoLightTextPrimary,
+    surfaceVariant = OtoLightSurfaceVariant,
+    onSurfaceVariant = OtoLightTextSecondary,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = OtoLightCard,
+    surfaceContainer = OtoLightSurface,
+    surfaceContainerHigh = OtoLightElevated,
+    surfaceContainerHighest = Color(0xFFD4DAE6),
+    outline = OtoLightOutline,
+    outlineVariant = OtoLightOutlineVariant
 )
 
 @Composable
@@ -102,25 +93,16 @@ fun ReflexTheme(
         ThemeMode.DARK -> true
     }
 
-    val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> PixelDarkColorScheme
-        else -> PixelLightColorScheme
-    }
+    val colorScheme = if (darkTheme) OtoDarkColorScheme else OtoLightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as? Activity)?.window
-            if (window != null) {
-                WindowCompat.getInsetsController(window, view).apply {
-                    isAppearanceLightStatusBars = !darkTheme
-                    isAppearanceLightNavigationBars = !darkTheme
-                }
-            }
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

@@ -68,7 +68,9 @@ data class MainUiState(
     val contextBadge: String = "STANDBY",
     val contextDescription: String = "Connecting to desktop...",
     val suggestedCommands: List<ReflexCommandItem> = emptyList(),
-    val allCommands: List<ReflexCommandItem> = emptyList()
+    val allCommands: List<ReflexCommandItem> = emptyList(),
+    val isMediaSheetExpanded: Boolean = false,
+    val topSearchQuery: String = ""
 )
 
 class MainScreenViewModel(application: Application) : AndroidViewModel(application) {
@@ -327,6 +329,38 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun dismissBanner() {
         _uiState.update { it.copy(statusBanner = null) }
+    }
+
+    fun togglePlayPause() {
+        val isPlaying = _uiState.value.desktopContext?.media?.isPlaying == true
+        val cmd = if (isPlaying) "pause" else "play"
+        dispatchCommand(cmd)
+    }
+
+    fun skipNext() {
+        dispatchCommand("next")
+    }
+
+    fun skipPrevious() {
+        dispatchCommand("previous")
+    }
+
+    fun toggleMute() {
+        val isMuted = _uiState.value.desktopContext?.volume?.isMuted == true
+        val cmd = if (isMuted) "unmute" else "mute"
+        dispatchCommand(cmd)
+    }
+
+    fun setVolume(percent: Int) {
+        dispatchCommand("volume $percent")
+    }
+
+    fun setMediaSheetExpanded(expanded: Boolean) {
+        _uiState.update { it.copy(isMediaSheetExpanded = expanded) }
+    }
+
+    fun setTopSearchQuery(query: String) {
+        _uiState.update { it.copy(topSearchQuery = query) }
     }
 
     override fun onCleared() {
