@@ -158,19 +158,26 @@ fun MainScreen(
             // Insets are applied once on the outer container, so the scaffold must not re-apply them.
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
-                OtoTopSearchBar(
-                    query = uiState.topSearchQuery,
-                    onQueryChange = { q ->
-                        viewModel.setTopSearchQuery(q)
-                        if (q.isNotBlank() && uiState.currentTab != ScreenTab.DIRECTORY) {
-                            viewModel.setTab(ScreenTab.DIRECTORY)
-                        }
-                        viewModel.setDirectorySearchQuery(q)
-                    },
-                    connectionState = uiState.connectionState,
-                    onPingClick = { viewModel.pingHost() },
-                    onMenuClick = { viewModel.setTab(ScreenTab.SETTINGS) }
-                )
+                if (uiState.currentTab == ScreenTab.DIRECTORY) {
+                    OtoTopSearchBar(
+                        query = uiState.topSearchQuery,
+                        onQueryChange = { q ->
+                            viewModel.setTopSearchQuery(q)
+                            viewModel.setDirectorySearchQuery(q)
+                        },
+                        connectionState = uiState.connectionState,
+                        onPingClick = { viewModel.pingHost() },
+                        onMenuClick = { viewModel.setTab(ScreenTab.SETTINGS) }
+                    )
+                } else if (uiState.currentTab == ScreenTab.REMOTE) {
+                    RemoteTvTopBar(
+                        connectionState = uiState.connectionState,
+                        context = uiState.desktopContext,
+                        onPingClick = { viewModel.pingHost() },
+                        onMenuClick = { viewModel.setTab(ScreenTab.SETTINGS) },
+                        onSearchClick = { viewModel.setTab(ScreenTab.DIRECTORY) }
+                    )
+                }
             },
             bottomBar = {
                 if (!useRail) {
@@ -309,6 +316,109 @@ fun MainScreen(
 // COMPONENT 1: Top Search Bar (Exact Oto Music Design, Color & Position)
 // Pill-shaped container, Hamburger menu, Search placeholder, Cast/Network status
 // ============================================================================
+
+@Composable
+private fun RemoteTvTopBar(
+    connectionState: ConnectionState,
+    context: DesktopContext?,
+    onPingClick: () -> Unit,
+    onMenuClick: () -> Unit,
+    onSearchClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left: Settings menu
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_menu),
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Center: Active Desktop Window Chip
+            val activeAppName = context?.activeWindow?.appName?.ifBlank { context.activeWindow.className }
+                ?.takeIf { it.isNotBlank() } ?: "Hyprland Desktop"
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClick = onPingClick)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (connectionState is ConnectionState.Online) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error
+                            )
+                    )
+                    Text(
+                        text = "$activeAppName • WS ${context?.activeWorkspace ?: 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Right: Latency & Quick Search Icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (connectionState is ConnectionState.Online) {
+                    Text(
+                        text = "${connectionState.latencyMs}ms",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                IconButton(
+                    onClick = onSearchClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_search),
+                        contentDescription = "Search Commands",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun OtoTopSearchBar(
@@ -1477,7 +1587,7 @@ private fun AndroidTvDPadWheel(
 ) {
     Box(
         modifier = modifier
-            .size(204.dp)
+            .size(165.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(
@@ -1492,14 +1602,14 @@ private fun AndroidTvDPadWheel(
             onClick = onUp,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-                .size(48.dp)
+                .padding(top = 3.dp)
+                .size(38.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_up),
                 contentDescription = "Focus Up",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -1508,14 +1618,14 @@ private fun AndroidTvDPadWheel(
             onClick = onDown,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp)
-                .size(48.dp)
+                .padding(bottom = 3.dp)
+                .size(38.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_down),
                 contentDescription = "Focus Down",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -1524,14 +1634,14 @@ private fun AndroidTvDPadWheel(
             onClick = onLeft,
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 8.dp)
-                .size(48.dp)
+                .padding(start = 3.dp)
+                .size(38.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_left),
                 contentDescription = "Focus Left",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -1540,21 +1650,21 @@ private fun AndroidTvDPadWheel(
             onClick = onRight,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 8.dp)
-                .size(48.dp)
+                .padding(end = 3.dp)
+                .size(38.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_right),
                 contentDescription = "Focus Right",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
         // Center OK button
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(58.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
@@ -1591,27 +1701,27 @@ private fun VolumeCapsuleRocker(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         modifier = modifier
-            .width(76.dp)
-            .height(144.dp)
+            .width(68.dp)
+            .height(116.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(
                 onClick = onVolumeUp,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Text(
                     text = "+",
-                    fontSize = 22.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -1620,19 +1730,20 @@ private fun VolumeCapsuleRocker(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .clickable(role = Role.Button, onClick = onMuteToggle)
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Icon(
                     painter = painterResource(if (volume?.isMuted == true) R.drawable.ic_volume_off else R.drawable.ic_volume),
                     contentDescription = "Mute / Unmute",
                     tint = if (volume?.isMuted == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(15.dp)
                 )
                 Text(
                     text = if (volume?.isMuted == true) "MUTE" else "${volume?.percent ?: 50}%",
                     style = MaterialTheme.typography.labelSmall,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1640,11 +1751,11 @@ private fun VolumeCapsuleRocker(
 
             IconButton(
                 onClick = onVolumeDown,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Text(
                     text = "-",
-                    fontSize = 26.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -1662,47 +1773,49 @@ private fun WorkspaceCapsuleRocker(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         modifier = modifier
-            .width(76.dp)
-            .height(144.dp)
+            .width(68.dp)
+            .height(116.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(
                 onClick = onWorkspaceNext,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_up),
                     contentDescription = "Next Workspace",
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .clickable(role = Role.Button, onClick = onWorkspaceReset)
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
                     text = "WS",
                     style = MaterialTheme.typography.labelSmall,
+                    fontSize = 9.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "$activeWs",
                     style = MaterialTheme.typography.titleMedium,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -1710,13 +1823,13 @@ private fun WorkspaceCapsuleRocker(
 
             IconButton(
                 onClick = onWorkspacePrev,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_down),
                     contentDescription = "Previous Workspace",
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
@@ -1864,9 +1977,9 @@ private fun AndroidTvRemoteChassis(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 18.dp, horizontal = 16.dp),
+                .padding(vertical = 10.dp, horizontal = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Remote Brand Header
             Row(
@@ -1880,10 +1993,9 @@ private fun AndroidTvRemoteChassis(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(
+                    Image(
                         painter = painterResource(R.drawable.ic_reflex_logo),
                         contentDescription = "Reflex Remote",
-                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -2074,10 +2186,10 @@ private fun RemoteTabContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+            .padding(horizontal = 14.dp),
+        contentPadding = PaddingValues(top = 2.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Status banner if error
         if (uiState.statusBanner != null) {
@@ -2089,26 +2201,7 @@ private fun RemoteTabContent(
             }
         }
 
-        // Top 4 Action Buttons
-        item {
-            OtoTopActionButtons(
-                onCommandsClick = onOpenDirectory,
-                onVoiceClick = onMicToggle,
-                onMediaClick = onOpenMediaSheet,
-                onRefreshClick = onRefreshContext
-            )
-        }
-
-        // Context readouts: active window and desktop volume (compact side-by-side)
-        item {
-            CompactHeroStatusRow(
-                context = uiState.desktopContext,
-                onWindowClick = onRefreshContext,
-                onAudioClick = onOpenMediaSheet
-            )
-        }
-
-        // Top Portion: Voice Hero Push-to-Talk Hub ("tab to speaker one")
+        // Top Portion: "tab to speaker one" (Voice Push-to-Talk Hub)
         item {
             VoiceHeroSection(
                 isListening = uiState.isListening,
@@ -2118,8 +2211,8 @@ private fun RemoteTabContent(
             )
         }
 
-        // Live Voice Transcript & Telemetry
-        if (uiState.isListening || uiState.isDispatching || !uiState.currentTranscript.isNullOrBlank() || uiState.lastResponse != null) {
+        // Live Voice Transcript & Telemetry (Visible only while listening or dispatching)
+        if (uiState.isListening || uiState.isDispatching || !uiState.currentTranscript.isNullOrBlank()) {
             item {
                 LiveTranscriptCard(
                     transcript = uiState.currentTranscript,
@@ -2870,19 +2963,19 @@ private fun VoiceHeroSection(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(110.dp)
+            modifier = Modifier.size(82.dp)
         ) {
             if (isListening) {
                 Box(
                     modifier = Modifier
-                        .size(104.dp)
+                        .size(78.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
                 )
                 Box(
                     modifier = Modifier
-                        .size(90.dp)
+                        .size(68.dp)
                         .scale(dynamicAudioScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
@@ -2890,7 +2983,7 @@ private fun VoiceHeroSection(
             } else if (isDispatching) {
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
+                        .size(74.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
@@ -2900,7 +2993,7 @@ private fun VoiceHeroSection(
             // Big Push-To-Talk Button
             Surface(
                 modifier = Modifier
-                    .size(74.dp)
+                    .size(60.dp)
                     .clip(CircleShape)
                     .clickable(
                         onClickLabel = if (isListening) "Stop listening" else "Start listening",
@@ -2921,21 +3014,21 @@ private fun VoiceHeroSection(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(buttonGradient)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isDispatching) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(26.dp),
                             color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 3.dp
+                            strokeWidth = 2.5.dp
                         )
                     } else {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_mic),
                             contentDescription = null,
                             tint = if (isListening) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
