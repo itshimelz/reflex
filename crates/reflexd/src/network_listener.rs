@@ -20,7 +20,14 @@ use tracing::{error, info, warn};
 
 pub const DEFAULT_NETWORK_PORT: u16 = 9421;
 
-static CURRENT_ART_FILE: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+#[derive(Clone)]
+struct CachedArt {
+    bytes: Vec<u8>,
+    content_type: String,
+    track_id: String,
+}
+
+static CURRENT_CACHED_ART: std::sync::RwLock<Option<CachedArt>> = std::sync::RwLock::new(None);
 
 #[derive(Deserialize)]
 struct CommandPayload {
@@ -157,37 +164,47 @@ pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload
                     let raw_art = parts.get(6).map(|a| a.trim().to_string()).unwrap_or_default();
                     let media_url = parts.get(7).map(|u| u.trim().to_string()).unwrap_or_default();
 
-                    let art_url = if raw_art.starts_with("file://") {
-                        let local_path = raw_art.trim_start_matches("file://").to_string();
-                        if let Ok(mut lock) = CURRENT_ART_FILE.write() {
-                            *lock = Some(local_path);
-                        }
-                        Some("/api/media/art".to_string())
-                    } else if raw_art.starts_with("http://") || raw_art.starts_with("https://") {
-                        Some(raw_art)
-                    } else if media_url.contains("youtube.com/watch?v=") {
-                        // Extract YouTube video ID
-                        let vid = media_url
+                    // 1. YouTube direct CDN thumbnail has highest precedence (universal & fast)
+                    let yt_vid = if media_url.contains("youtube.com/watch?v=") {
+                        media_url
                             .split("watch?v=")
                             .nth(1)
                             .and_then(|s| s.split('&').next())
-                            .unwrap_or("");
-                        if !vid.is_empty() {
-                            Some(format!("https://img.youtube.com/vi/{}/hqdefault.jpg", vid))
-                        } else {
-                            None
-                        }
                     } else if media_url.contains("youtu.be/") {
-                        let vid = media_url
+                        media_url
                             .split("youtu.be/")
                             .nth(1)
                             .and_then(|s| s.split('?').next())
-                            .unwrap_or("");
-                        if !vid.is_empty() {
-                            Some(format!("https://img.youtube.com/vi/{}/hqdefault.jpg", vid))
-                        } else {
-                            None
+                    } else {
+                        None
+                    };
+
+                    let art_url = if let Some(vid) = yt_vid.filter(|v| !v.is_empty()) {
+                        Some(format!("https://img.youtube.com/vi/{}/hqdefault.jpg", vid))
+                    } else if raw_art.starts_with("http://") || raw_art.starts_with("https://") {
+                        Some(raw_art)
+                    } else if raw_art.starts_with("file://") {
+                        let local_path = raw_art.trim_start_matches("file://").to_string();
+                        let track_id = format!("{:x}", (title.len() * 31 + artist.len()));
+
+                        // Read file bytes immediately into in-memory cache so deletion by player won't break it
+                        if let Ok(bytes) = std::fs::read(&local_path) {
+                            let content_type = if local_path.ends_with(".png") {
+                                "image/png"
+                            } else if local_path.ends_with(".webp") {
+                                "image/webp"
+                            } else {
+                                "image/jpeg"
+                            };
+                            if let Ok(mut lock) = CURRENT_CACHED_ART.write() {
+                                *lock = Some(CachedArt {
+                                    bytes,
+                                    content_type: content_type.to_string(),
+                                    track_id: track_id.clone(),
+                                });
+                            }
                         }
+                        Some(format!("/api/media/art?k={}", track_id))
                     } else {
                         None
                     };
@@ -214,6 +231,14 @@ pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload
                     + (if !b.artist.is_empty() { 3 } else { 0 });
                 b_score.cmp(&a_score)
             });
+
+            // If winning candidate lacks art_url, borrow from another candidate with art_url
+            let donor_art = candidates.iter().find_map(|c| c.art_url.clone());
+            if let Some(first) = candidates.first_mut() {
+                if first.art_url.is_none() {
+                    first.art_url = donor_art;
+                }
+            }
 
             candidates.into_iter().next()
         }
@@ -420,42 +445,30 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
     }
 
     if method == "GET" && clean_path == "/api/media/art" {
-        let art_path = CURRENT_ART_FILE
+        let cached = CURRENT_CACHED_ART
             .read()
             .ok()
             .and_then(|guard| guard.clone());
 
-        if let Some(path) = art_path {
-            if let Ok(bytes) = tokio::fs::read(&path).await {
-                let content_type = if path.ends_with(".png") {
-                    "image/png"
-                } else if path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".jfif") {
-                    "image/jpeg"
-                } else if path.ends_with(".webp") {
-                    "image/webp"
-                } else {
-                    "image/jpeg"
-                };
+        if let Some(art) = cached {
+            let resp_header = format!(
+                "HTTP/1.1 200 OK\r\n\
+                Content-Type: {}\r\n\
+                Access-Control-Allow-Origin: *\r\n\
+                Content-Length: {}\r\n\
+                Cache-Control: public, max-age=86400\r\n\
+                Connection: close\r\n\r\n",
+                art.content_type,
+                art.bytes.len()
+            );
 
-                let resp_header = format!(
-                    "HTTP/1.1 200 OK\r\n\
-                    Content-Type: {}\r\n\
-                    Access-Control-Allow-Origin: *\r\n\
-                    Content-Length: {}\r\n\
-                    Connection: close\r\n\r\n",
-                    content_type,
-                    bytes.len()
-                );
-
-                let _ = stream.write_all(resp_header.as_bytes()).await;
-                let _ = stream.write_all(&bytes).await;
-                let _ = stream.flush().await;
-                return;
-            }
+            let _ = stream.write_all(resp_header.as_bytes()).await;
+            let _ = stream.write_all(&art.bytes).await;
+            let _ = stream.flush().await;
+            return;
         }
 
-        let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-        let _ = stream.write_all(not_found.as_bytes()).await;
+        let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\n\r\n").await;
         return;
     }
 

@@ -45,7 +45,7 @@ object SmartCommandSuggester {
 
         // 1. Is media actively playing or has track loaded?
         if (media.isPlaying) {
-            val playerLabel = if (media.player.isNotBlank()) media.player.uppercase() else "MEDIA"
+            val playerLabel = cleanPlayerLabel(media.player)
             val trackInfo = if (media.title.isNotBlank()) {
                 if (media.artist.isNotBlank()) "${media.title} • ${media.artist}" else media.title
             } else "Playback Active"
@@ -66,7 +66,7 @@ object SmartCommandSuggester {
             ids.add("toggle_mute")
 
             return ContextSuggestionResult(
-                contextBadge = "NOW PLAYING ($playerLabel)",
+                contextBadge = "PLAYING • $playerLabel",
                 contextDescription = trackInfo,
                 commands = ids.mapNotNull { commandsById[it] }
             )
@@ -88,7 +88,7 @@ object SmartCommandSuggester {
                 "open_terminal"
             )
             return ContextSuggestionResult(
-                contextBadge = "FILE MANAGER (DOLPHIN)",
+                contextBadge = "FILES • DOLPHIN",
                 contextDescription = if (window.title.isNotBlank()) window.title else "Selected file operations active",
                 commands = ids.mapNotNull { commandsById[it] }
             )
@@ -105,8 +105,9 @@ object SmartCommandSuggester {
                 "close_window",
                 "toggle_fullscreen"
             )
+            val termName = if (appName.isNotBlank()) appName.uppercase().take(8) else "TERMINAL"
             return ContextSuggestionResult(
-                contextBadge = "TERMINAL (${appName.uppercase()})",
+                contextBadge = "TERMINAL • $termName",
                 contextDescription = if (window.title.isNotBlank()) window.title else "Terminal & clipboard injection ready",
                 commands = ids.mapNotNull { commandsById[it] }
             )
@@ -123,9 +124,9 @@ object SmartCommandSuggester {
                 "focus_direction",
                 "close_window"
             )
-            val editorName = if (appName.isNotBlank()) appName.uppercase() else "EDITOR"
+            val editorName = if (appName.isNotBlank()) appName.uppercase().take(8) else "EDITOR"
             return ContextSuggestionResult(
-                contextBadge = "EDITOR ($editorName)",
+                contextBadge = "EDITOR • $editorName",
                 contextDescription = if (window.title.isNotBlank()) window.title else "Code editing & layout focus",
                 commands = ids.mapNotNull { commandsById[it] }
             )
@@ -143,8 +144,9 @@ object SmartCommandSuggester {
                 "volume_up",
                 "volume_down"
             )
+            val browserName = if (appName.isNotBlank()) appName.uppercase().take(8) else "BROWSER"
             return ContextSuggestionResult(
-                contextBadge = "BROWSER (${appName.uppercase()})",
+                contextBadge = "BROWSER • $browserName",
                 contextDescription = if (window.title.isNotBlank()) window.title else "Web navigation & media ready",
                 commands = ids.mapNotNull { commandsById[it] }
             )
@@ -161,11 +163,26 @@ object SmartCommandSuggester {
             "zip_selected",
             "open_terminal"
         )
-        val appLabel = if (appName.isNotBlank()) appName.uppercase() else "DESKTOP"
+        val appLabel = if (appName.isNotBlank()) appName.uppercase().take(8) else "DESKTOP"
         return ContextSuggestionResult(
-            contextBadge = "FOCUSED ($appLabel)",
+            contextBadge = "FOCUS • $appLabel",
             contextDescription = if (window.title.isNotBlank()) window.title else "Ready for voice and quick commands",
             commands = defaultIds.mapNotNull { commandsById[it] }
         )
+    }
+
+    private fun cleanPlayerLabel(player: String): String {
+        val lower = player.lowercase().trim()
+        return when {
+            lower.contains("plasma-browser") || lower.contains("browser") -> "BROWSER"
+            lower.contains("spotify") -> "SPOTIFY"
+            lower.contains("chrome") -> "CHROME"
+            lower.contains("firefox") -> "FIREFOX"
+            lower.contains("brave") -> "BRAVE"
+            lower.contains("vlc") -> "VLC"
+            lower.contains("mpv") -> "MPV"
+            lower.isBlank() -> "MEDIA"
+            else -> player.uppercase().take(8)
+        }
     }
 }

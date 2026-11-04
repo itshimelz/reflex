@@ -12,7 +12,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -536,14 +539,17 @@ private fun rememberRemoteBitmap(url: String?): ImageBitmap? {
         withContext(Dispatchers.IO) {
             try {
                 val conn = URL(url).openConnection() as HttpURLConnection
-                conn.connectTimeout = 3500
-                conn.readTimeout = 4000
+                conn.connectTimeout = 4000
+                conn.readTimeout = 5000
                 conn.instanceFollowRedirects = true
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; Mobile) ReflexCompanion/1.0")
+                conn.setRequestProperty("Accept", "image/*")
                 conn.doInput = true
                 conn.connect()
                 if (conn.responseCode in 200..299) {
-                    conn.inputStream.use { stream ->
-                        val decoded = BitmapFactory.decodeStream(stream)
+                    val bytes = conn.inputStream.use { it.readBytes() }
+                    if (bytes.isNotEmpty()) {
+                        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                         if (decoded != null) {
                             val imgBmp = decoded.asImageBitmap()
                             BitmapMemoryCache.cache.put(url, imgBmp)
@@ -686,20 +692,36 @@ private fun OtoMiniPlayer(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (artBitmap != null) {
-                        Image(
-                            bitmap = artBitmap,
-                            contentDescription = "Album Art",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(id = if (isPlaying) R.drawable.ic_music_note else R.drawable.ic_reflex_logo),
-                            contentDescription = null,
-                            tint = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    AnimatedContent(
+                        targetState = artBitmap to isPlaying,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
+                                scaleIn(
+                                    initialScale = 0.88f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )) togetherWith (fadeOut(animationSpec = tween(180)) +
+                                scaleOut(targetScale = 1.05f))
+                        },
+                        label = "MiniPlayerArtAnimation"
+                    ) { (bitmap, playing) ->
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap,
+                                contentDescription = "Album Art",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(id = if (playing) R.drawable.ic_music_note else R.drawable.ic_reflex_logo),
+                                contentDescription = null,
+                                tint = if (playing) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
 
@@ -759,14 +781,29 @@ private fun OtoMiniPlayer(
                                 modifier = Modifier.size(28.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    painter = painterResource(id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
-                                    contentDescription = if (isPlaying) "Pause" else "Play",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .padding(start = if (isPlaying) 0.dp else 2.dp)
-                                )
+                                AnimatedContent(
+                                    targetState = isPlaying,
+                                    transitionSpec = {
+                                        (scaleIn(
+                                            initialScale = 0.7f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium
+                                            )
+                                        ) + fadeIn(animationSpec = tween(150)))
+                                            .togetherWith(scaleOut(targetScale = 0.7f) + fadeOut(animationSpec = tween(120)))
+                                    },
+                                    label = "MiniPlayerPlayPauseAnim"
+                                ) { playing ->
+                                    Icon(
+                                        painter = painterResource(id = if (playing) R.drawable.ic_pause else R.drawable.ic_play_arrow),
+                                        contentDescription = if (playing) "Pause" else "Play",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .padding(start = if (playing) 0.dp else 2.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -923,45 +960,66 @@ private fun OtoMediaBottomSheet(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (artBitmap != null) {
-                        Image(
-                            bitmap = artBitmap,
-                            contentDescription = "Album Artwork",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        // Concentric soundwave circles canvas fallback
-                        val ringColor = MaterialTheme.colorScheme.outlineVariant
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val center = Offset(size.width / 2f, size.height / 2f)
-                            val maxRadius = size.minDimension / 2f
-                            drawCircle(
-                                color = ringColor.copy(alpha = 0.6f),
-                                radius = maxRadius * 0.9f,
-                                center = center,
-                                style = Stroke(width = 2f)
+                    AnimatedContent(
+                        targetState = artBitmap to isPlaying,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                                scaleIn(
+                                    initialScale = 0.90f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                )) togetherWith (fadeOut(animationSpec = tween(200)) +
+                                scaleOut(targetScale = 1.05f))
+                        },
+                        label = "FullPlayerArtAnimation"
+                    ) { (bitmap, playing) ->
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap,
+                                contentDescription = "Album Artwork",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
-                            drawCircle(
-                                color = ringColor.copy(alpha = 0.5f),
-                                radius = maxRadius * 0.7f,
-                                center = center,
-                                style = Stroke(width = 2f)
-                            )
-                            drawCircle(
-                                color = ringColor.copy(alpha = 0.4f),
-                                radius = maxRadius * 0.45f,
-                                center = center,
-                                style = Stroke(width = 2f)
-                            )
-                        }
+                        } else {
+                            // Concentric soundwave circles canvas fallback
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val ringColor = MaterialTheme.colorScheme.outlineVariant
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val center = Offset(size.width / 2f, size.height / 2f)
+                                    val maxRadius = size.minDimension / 2f
+                                    drawCircle(
+                                        color = ringColor.copy(alpha = 0.6f),
+                                        radius = maxRadius * 0.9f,
+                                        center = center,
+                                        style = Stroke(width = 2f)
+                                    )
+                                    drawCircle(
+                                        color = ringColor.copy(alpha = 0.5f),
+                                        radius = maxRadius * 0.7f,
+                                        center = center,
+                                        style = Stroke(width = 2f)
+                                    )
+                                    drawCircle(
+                                        color = ringColor.copy(alpha = 0.4f),
+                                        radius = maxRadius * 0.45f,
+                                        center = center,
+                                        style = Stroke(width = 2f)
+                                    )
+                                }
 
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_music_note),
-                            contentDescription = "Audio Art",
-                            tint = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.size(80.dp)
-                        )
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_music_note),
+                                    contentDescription = "Audio Art",
+                                    tint = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                    modifier = Modifier.size(80.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1080,16 +1138,31 @@ private fun OtoMediaBottomSheet(
                         .clickable(onClick = onPlayPause),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                        ),
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .padding(start = if (isPlaying) 0.dp else 2.dp)
-                    )
+                    AnimatedContent(
+                        targetState = isPlaying,
+                        transitionSpec = {
+                            (scaleIn(
+                                initialScale = 0.7f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                )
+                            ) + fadeIn(animationSpec = tween(150)))
+                                .togetherWith(scaleOut(targetScale = 0.7f) + fadeOut(animationSpec = tween(120)))
+                        },
+                        label = "FullPlayerPlayPauseAnim"
+                    ) { playing ->
+                        Icon(
+                            painter = painterResource(
+                                id = if (playing) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                            ),
+                            contentDescription = if (playing) "Pause" else "Play",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .padding(start = if (playing) 0.dp else 2.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(24.dp))
@@ -1383,11 +1456,11 @@ private fun RemoteTabContent(
             )
         }
 
-        // Context readouts: active window and desktop volume
+        // Context readouts: active window and desktop volume (compact side-by-side)
         item {
-            OtoCarouselHeroRow(
+            CompactHeroStatusRow(
                 context = uiState.desktopContext,
-                onForYouClick = onRefreshContext,
+                onWindowClick = onRefreshContext,
                 onAudioClick = onOpenMediaSheet
             )
         }
@@ -1481,118 +1554,212 @@ private fun RemoteTabContent(
 }
 
 // ============================================================================
-// CAROUSEL HERO CARDS (Exact Oto Music "For You Now" & "Late Night Mix")
+// COMPACT HERO STATUS ROW (Focused Window & Desktop Volume Side-By-Side)
+// Replaces the oversized 230dp carousel with a compact 86dp dual card row
 // ============================================================================
 
 @Composable
-private fun OtoCarouselHeroRow(
+private fun CompactHeroStatusRow(
     context: DesktopContext?,
-    onForYouClick: () -> Unit,
+    onWindowClick: () -> Unit,
     onAudioClick: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
-    val ringColor = MaterialTheme.colorScheme.outlineVariant
-    val dotColor = MaterialTheme.colorScheme.primary
-    val innerDotColor = MaterialTheme.colorScheme.primaryContainer
-    val dialColor = MaterialTheme.colorScheme.primaryContainer
-    val handColor = MaterialTheme.colorScheme.onPrimaryContainer
-
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(scrollState),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Card 1: what the desktop is focused on right now.
-        Card(
+        // Left Card: Focused Window & Workspace
+        Surface(
             modifier = Modifier
-                .width(230.dp)
-                .height(230.dp)
-                .clip(RoundedCornerShape(28.dp))
+                .weight(1f)
+                .height(86.dp)
+                .clip(RoundedCornerShape(18.dp))
                 .clickable(
-                    onClickLabel = "Refresh desktop context",
+                    onClickLabel = "Refresh desktop focus",
                     role = Role.Button,
-                    onClick = onForYouClick
+                    onClick = onWindowClick
                 ),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-            shape = RoundedCornerShape(28.dp)
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val center = Offset(size.width * 0.75f, size.height * 0.35f)
-                    drawCircle(color = ringColor.copy(alpha = 0.6f), radius = 100f, center = center, style = Stroke(2f))
-                    drawCircle(color = ringColor.copy(alpha = 0.5f), radius = 160f, center = center, style = Stroke(2f))
-                    drawCircle(color = ringColor.copy(alpha = 0.4f), radius = 220f, center = center, style = Stroke(2f))
-                    drawCircle(color = dotColor, radius = 42f, center = center)
-                    drawCircle(color = innerDotColor, radius = 18f, center = center)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_window),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                        Text(
+                            text = "FOCUSED",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    val ws = context?.activeWindow?.workspace
+                    if (ws != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "WS $ws",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.Bottom
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "Active window",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = context?.activeWindow?.appName?.ifBlank { "No window focus" } ?: "Not connected",
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = context?.activeWindow?.appName?.ifBlank { "No focus" } ?: "Standby",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = context?.activeWindow?.title?.ifBlank { "Desktop workspace" } ?: "Ready",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
 
-        // Card 2: volume readout, opens the full player.
-        Card(
+        // Right Card: Desktop Volume & Output
+        val isMuted = context?.volume?.isMuted == true
+        val volPercent = context?.volume?.percent ?: 50
+
+        Surface(
             modifier = Modifier
-                .width(230.dp)
-                .height(230.dp)
-                .clip(RoundedCornerShape(28.dp))
+                .weight(1f)
+                .height(86.dp)
+                .clip(RoundedCornerShape(18.dp))
                 .clickable(
-                    onClickLabel = "Open player",
+                    onClickLabel = "Open audio controls",
                     role = Role.Button,
                     onClick = onAudioClick
                 ),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-            shape = RoundedCornerShape(28.dp)
+            color = if (isMuted) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(
+                1.dp,
+                if (isMuted) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+            )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val center = Offset(size.width * 0.8f, size.height * 0.35f)
-                    drawCircle(color = dialColor, radius = 55f, center = center)
-                    drawLine(color = handColor, start = center, end = Offset(center.x, center.y - 30f), strokeWidth = 3f)
-                    drawLine(color = handColor, start = center, end = Offset(center.x + 22f, center.y + 12f), strokeWidth = 3f)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(if (isMuted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isMuted) R.drawable.ic_volume_off else R.drawable.ic_volume_up
+                                ),
+                                contentDescription = null,
+                                tint = if (isMuted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                        Text(
+                            text = "VOLUME",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.1.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+
+                    Surface(
+                        color = if (isMuted) MaterialTheme.colorScheme.error.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (isMuted) "MUTED" else "$volPercent%",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.Bottom
-                ) {
+                // Volume Bar & Status line
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "Desktop volume",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = if (isMuted) "Output Muted" else "Default Sink",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (context?.volume?.isMuted == true) {
-                            "Muted"
-                        } else {
-                            "${context?.volume?.percent ?: 50}%"
-                        },
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+
+                    // Sleek Mini Volume Bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(if (isMuted) 0f else (volPercent / 100f).coerceIn(0f, 1f))
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(if (isMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        )
+                    }
                 }
             }
         }
@@ -1600,8 +1767,8 @@ private fun OtoCarouselHeroRow(
 }
 
 // ============================================================================
-// "HIDDEN GEMS" SECTION (Exact Oto Music song tiles list)
-// Displays context-adaptive quick shortcuts as styled horizontal cards
+// "SUGGESTED FOR YOU" SECTION (Adaptive Responsive 2-Column Grid)
+// Renders context-adaptive quick shortcuts in a clean non-squished layout
 // ============================================================================
 
 @Composable
@@ -1613,110 +1780,151 @@ private fun OtoHiddenGemsSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // 1. Adaptive Header Row with Title and Constrained Badge
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Suggested for you",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = "Suggested for you",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
 
             if (badge.isNotBlank()) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(999.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.widthIn(max = 160.dp)
                 ) {
                     Text(
                         text = badge,
                         style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
         }
 
-        if (commands.isEmpty()) {
+        // Subtitle context description
+        if (description.isNotBlank()) {
             Text(
-                text = "No suggestions yet. Connect to your PC to see context-aware commands.",
-                style = MaterialTheme.typography.bodyMedium,
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-        } else {
-            // Horizontal Grid/List of commands
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
+        }
+
+        if (commands.isEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                items(commands.take(6), key = { it.id }) { item ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .width(220.dp)
-                            .height(72.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable(
-                                onClickLabel = "Run ${item.title}",
-                                role = Role.Button
-                            ) { onCommandClick(item.command) }
+                Text(
+                    text = "Awaiting desktop telemetry for contextual shortcuts...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        } else {
+            // Adaptive 2-Column Grid (Chunked into pairs of 2)
+            val chunked = remember(commands) { commands.take(6).chunked(2) }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (rowItems in chunked) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_terminal),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
+                        for (item in rowItems) {
+                            val iconRes = remember(item.command, item.category) {
+                                when {
+                                    item.command.contains("volume") || item.category == CommandCategory.AUDIO -> R.drawable.ic_volume_up
+                                    item.command == "mute" || item.command == "unmute" || item.command == "toggle_mute" -> R.drawable.ic_volume_off
+                                    item.command == "play" || item.command == "pause" || item.command == "media_toggle" -> R.drawable.ic_play_arrow
+                                    item.command.contains("next") -> R.drawable.ic_skip_next
+                                    item.command.contains("prev") -> R.drawable.ic_skip_previous
+                                    item.command.contains("screenshot") || item.category == CommandCategory.WINDOW -> R.drawable.ic_window
+                                    else -> R.drawable.ic_terminal
+                                }
                             }
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = item.command,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable(
+                                        onClickLabel = "Run ${item.title}",
+                                        role = Role.Button
+                                    ) { onCommandClick(item.command) }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = iconRes),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = item.title,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = item.command,
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
+                        }
+                        // If single odd item in row, fill the other half with empty space
+                        if (rowItems.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -1762,23 +1970,23 @@ private fun VoiceHeroSection(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 8.dp)
+        modifier = Modifier.padding(vertical = 4.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(150.dp)
+            modifier = Modifier.size(110.dp)
         ) {
             if (isListening) {
                 Box(
                     modifier = Modifier
-                        .size(140.dp)
+                        .size(104.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
                 )
                 Box(
                     modifier = Modifier
-                        .size(118.dp)
+                        .size(90.dp)
                         .scale(dynamicAudioScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
@@ -1786,7 +1994,7 @@ private fun VoiceHeroSection(
             } else if (isDispatching) {
                 Box(
                     modifier = Modifier
-                        .size(125.dp)
+                        .size(96.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
@@ -1796,7 +2004,7 @@ private fun VoiceHeroSection(
             // Big Push-To-Talk Button
             Surface(
                 modifier = Modifier
-                    .size(88.dp)
+                    .size(74.dp)
                     .clip(CircleShape)
                     .clickable(
                         onClickLabel = if (isListening) "Stop listening" else "Start listening",
@@ -1822,7 +2030,7 @@ private fun VoiceHeroSection(
                 ) {
                     if (isDispatching) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(38.dp),
+                            modifier = Modifier.size(32.dp),
                             color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 3.dp
                         )
@@ -1831,14 +2039,14 @@ private fun VoiceHeroSection(
                             painter = painterResource(id = R.drawable.ic_mic),
                             contentDescription = null,
                             tint = if (isListening) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         val statusText = when {
             isDispatching -> "Sending to PC"
@@ -1848,7 +2056,7 @@ private fun VoiceHeroSection(
 
         Text(
             text = statusText,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
