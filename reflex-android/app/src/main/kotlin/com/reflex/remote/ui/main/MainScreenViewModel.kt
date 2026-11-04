@@ -7,11 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.reflex.remote.data.PingResult
 import com.reflex.remote.data.ReflexClient
 import com.reflex.remote.data.ReflexResponse
+import com.reflex.remote.data.db.CommandEvent
+import com.reflex.remote.data.db.CommandHistoryRepository
 import com.reflex.remote.data.model.CommandCategory
 import com.reflex.remote.data.model.DesktopContext
 import com.reflex.remote.data.model.ReflexCommandItem
 import com.reflex.remote.data.source.AssetCommandDataSource
 import com.reflex.remote.domain.SmartCommandSuggester
+import com.reflex.remote.domain.prediction.CommandPredictionEngine
+import com.reflex.remote.domain.prediction.PredictedCommand
 import com.reflex.remote.speech.VoiceRecognitionManager
 import com.reflex.remote.ui.theme.ThemeMode
 import kotlinx.coroutines.Job
@@ -62,12 +66,17 @@ data class MainUiState(
     val statusBanner: String? = null,
     val directoryCategory: CommandCategory = CommandCategory.ALL,
     val directorySearchQuery: String = "",
-    // Smart Context
+    // Smart Context & Dynamic Prediction Engine
     val desktopContext: DesktopContext? = null,
     val contextBadge: String = "STANDBY",
     val contextDescription: String = "Connecting to desktop...",
     val suggestedCommands: List<ReflexCommandItem> = emptyList(),
     val allCommands: List<ReflexCommandItem> = emptyList(),
+    val predictedCommands: List<PredictedCommand> = emptyList(),
+    val predictionContextSummary: String = "",
+    val rankedCatalogCommands: List<ReflexCommandItem> = emptyList(),
+    val dynamicCategories: List<CommandCategory> = CommandCategory.values().toList(),
+    val lastExecutedCommand: String? = null,
     val isMediaSheetExpanded: Boolean = false,
     val topSearchQuery: String = ""
 )
@@ -77,6 +86,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val prefs = application.getSharedPreferences("reflex_remote_prefs", Context.MODE_PRIVATE)
     private val client = ReflexClient()
     private val commandDataSource = AssetCommandDataSource(application)
+    val historyRepository = CommandHistoryRepository(application)
 
     private val savedThemeMode: ThemeMode = runCatching {
         ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
@@ -109,19 +119,23 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 val suggestion = SmartCommandSuggester.suggestCommands(current.desktopContext, items)
                 current.copy(
                     allCommands = items,
+                    rankedCatalogCommands = items,
                     contextBadge = suggestion.contextBadge,
                     contextDescription = suggestion.contextDescription,
                     suggestedCommands = suggestion.commands
                 )
             }
+            refreshPredictions()
         }
     }
 
     private fun startContextPolling() {
         contextPollingJob?.cancel()
         contextPollingJob = viewModelScope.launch {
+            var pollIteration = 0
             while (true) {
                 delay(2000)
+                pollIteration++
                 val state = _uiState.value
                 val res = client.pingHost(state.pcHost, state.pcPort)
                 res.fold(
@@ -129,6 +143,9 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         _uiState.update { it.copy(connectionState = ConnectionState.Online(pingResult.latencyMs)) }
                         if (pingResult.context != null) {
                             updateContext(pingResult.context)
+                        }
+                        if (pollIteration % 5 == 0) {
+                            syncDesktopHistory(state.pcHost, state.pcPort)
                         }
                     },
                     onFailure = { err ->
@@ -146,8 +163,48 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 desktopContext = context,
                 contextBadge = suggestion.contextBadge,
                 contextDescription = suggestion.contextDescription,
-                suggestedCommands = suggestion.commands
+                suggestedCommands = if (current.predictedCommands.isNotEmpty()) {
+                    current.predictedCommands.map { it.commandItem }
+                } else {
+                    suggestion.commands
+                }
             )
+        }
+        refreshPredictions()
+    }
+
+    private fun syncDesktopHistory(host: String, port: Int) {
+        viewModelScope.launch {
+            client.fetchRemoteHistory(host, port).onSuccess { remoteEvents ->
+                if (remoteEvents.isNotEmpty()) {
+                    historyRepository.recordBatch(remoteEvents)
+                    refreshPredictions()
+                }
+            }
+        }
+    }
+
+    fun refreshPredictions() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (state.allCommands.isEmpty()) return@launch
+
+            val result = CommandPredictionEngine.predict(
+                currentContext = state.desktopContext,
+                lastExecutedCommand = state.lastExecutedCommand,
+                allCommands = state.allCommands,
+                repository = historyRepository
+            )
+
+            _uiState.update { current ->
+                current.copy(
+                    predictedCommands = result.predictedCommands,
+                    predictionContextSummary = result.contextSummary,
+                    rankedCatalogCommands = result.rankedCatalog,
+                    dynamicCategories = result.prioritizedCategories,
+                    suggestedCommands = result.predictedCommands.map { it.commandItem }
+                )
+            }
         }
     }
 
@@ -241,6 +298,28 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                         )
                     }
 
+                    // Record to local database for next-action sequence and context learning
+                    val currentContext = state.desktopContext
+                    val prevCmd = state.lastExecutedCommand ?: ""
+                    historyRepository.recordEvent(
+                        CommandEvent(
+                            commandText = trimmed,
+                            commandId = state.allCommands.firstOrNull { it.command.equals(trimmed, ignoreCase = true) }?.id ?: "",
+                            appName = currentContext?.activeWindow?.appName ?: "",
+                            windowTitle = currentContext?.activeWindow?.title ?: "",
+                            windowClass = currentContext?.activeWindow?.className ?: "",
+                            workspace = currentContext?.activeWindow?.workspace?.toString() ?: "",
+                            isMediaPlaying = currentContext?.media?.isPlaying == true,
+                            mediaPlayer = currentContext?.media?.player ?: "",
+                            mediaTitle = currentContext?.media?.title ?: "",
+                            previousCommand = prevCmd,
+                            timestamp = System.currentTimeMillis(),
+                            source = "android"
+                        )
+                    )
+                    _uiState.update { it.copy(lastExecutedCommand = trimmed) }
+                    refreshPredictions()
+
                     // Refresh context shortly after executing command to observe changes
                     delay(200)
                     client.fetchContext(state.pcHost, state.pcPort).onSuccess { ctx ->
@@ -314,7 +393,11 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun clearHistory() {
-        _uiState.update { it.copy(history = emptyList(), lastResponse = null, currentTranscript = "") }
+        viewModelScope.launch {
+            historyRepository.clearHistory()
+            _uiState.update { it.copy(history = emptyList(), lastResponse = null, currentTranscript = "", lastExecutedCommand = null) }
+            refreshPredictions()
+        }
     }
 
     fun dismissBanner() {

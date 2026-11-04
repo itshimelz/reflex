@@ -100,6 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,
+        command_history: Arc::new(RwLock::new(std::collections::VecDeque::new())),
     });
 
     // 6. Spawn LAN Network Server (for mobile remote / network voice commands)

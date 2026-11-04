@@ -17,13 +17,37 @@ use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
+
+static HISTORY_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandHistoryEntry {
+    pub id: String,
+    pub command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    pub timestamp_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_playing: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_player: Option<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IpcResponse {
@@ -48,9 +72,8 @@ pub struct ServerContext {
     pub registry: Arc<RwLock<AppRegistry>>,
     pub guardrails: Arc<Mutex<GuardrailEngine>>,
     pub config: ReflexConfig,
+    pub command_history: Arc<RwLock<VecDeque<CommandHistoryEntry>>>,
 }
-
-use tokio::sync::RwLock;
 
 pub async fn run_server(
     ctx: Arc<ServerContext>,
@@ -119,7 +142,87 @@ pub async fn process_transcript(raw_transcript: &str, ctx: &ServerContext) -> Ip
         };
     };
 
-    execute_action(&action, ctx, start_time).await
+    let resp = execute_action(&action, ctx, start_time).await;
+    if resp.status == "Success" {
+        record_command_history(ctx, trimmed, resp.action.as_deref()).await;
+    }
+    resp
+}
+
+pub async fn record_command_history(
+    ctx: &ServerContext,
+    command: &str,
+    action: Option<&str>,
+) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    let (app_name, window_title, workspace) = if let Some(ref hl) = ctx.hyprland {
+        if let Ok(Some(w)) = hl.fetch_active_window().await {
+            (Some(w.class), Some(w.title), Some(w.workspace.to_string()))
+        } else {
+            (None, None, None)
+        }
+    } else {
+        (None, None, None)
+    };
+
+    let (media_playing, media_player) = match tokio::process::Command::new("playerctl")
+        .args(["status"])
+        .output()
+        .await
+    {
+        Ok(out) if out.status.success() => {
+            let status = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let is_playing = status.eq_ignore_ascii_case("playing");
+            (Some(is_playing), None)
+        }
+        _ => (None, None),
+    };
+
+    let count = HISTORY_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let entry = CommandHistoryEntry {
+        id: format!("{}_{}", now, count),
+        command: command.to_string(),
+        action: action.map(|a| a.to_string()),
+        timestamp_ms: now,
+        app_name,
+        window_title,
+        workspace,
+        media_playing,
+        media_player,
+    };
+
+    // Keep last 200 in memory
+    {
+        let mut history = ctx.command_history.write().await;
+        if history.len() >= 200 {
+            history.pop_front();
+        }
+        history.push_back(entry.clone());
+    }
+
+    // Persist to ~/.local/share/reflex/history.jsonl
+    let entry_json = serde_json::to_string(&entry).unwrap_or_default();
+    tokio::spawn(async move {
+        let xdg = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            format!("{}/.local/share", home)
+        });
+        let dir = std::path::PathBuf::from(xdg).join("reflex");
+        let _ = tokio::fs::create_dir_all(&dir).await;
+        let file_path = dir.join("history.jsonl");
+        if let Ok(mut file) = tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file_path)
+            .await
+        {
+            let _ = file.write_all(format!("{}\n", entry_json).as_bytes()).await;
+        }
+    });
 }
 
 async fn handle_client(stream: UnixStream, ctx: Arc<ServerContext>) {

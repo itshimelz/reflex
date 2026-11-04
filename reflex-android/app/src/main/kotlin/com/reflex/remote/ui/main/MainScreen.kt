@@ -114,6 +114,7 @@ import com.reflex.remote.data.ReflexResponse
 import com.reflex.remote.data.model.CommandCategory
 import com.reflex.remote.data.model.DesktopContext
 import com.reflex.remote.data.model.ReflexCommandItem
+import com.reflex.remote.domain.prediction.PredictedCommand
 import com.reflex.remote.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -235,6 +236,10 @@ fun MainScreen(
                                 ScreenTab.DIRECTORY -> {
                                     CommandDirectoryTabContent(
                                         allItems = uiState.allCommands,
+                                        rankedItems = if (uiState.rankedCatalogCommands.isNotEmpty()) uiState.rankedCatalogCommands else uiState.allCommands,
+                                        predictedCommands = uiState.predictedCommands,
+                                        dynamicCategories = uiState.dynamicCategories,
+                                        contextSummary = uiState.predictionContextSummary,
                                         selectedCategory = uiState.directoryCategory,
                                         searchQuery = uiState.directorySearchQuery,
                                         onCategoryChange = { cat -> viewModel.setDirectoryCategory(cat) },
@@ -2060,14 +2065,19 @@ private fun StatusBanner(
 @Composable
 private fun CommandDirectoryTabContent(
     allItems: List<ReflexCommandItem>,
+    rankedItems: List<ReflexCommandItem>,
+    predictedCommands: List<PredictedCommand>,
+    dynamicCategories: List<CommandCategory>,
+    contextSummary: String,
     selectedCategory: CommandCategory,
     searchQuery: String,
     onCategoryChange: (CommandCategory) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onCommandClick: (ReflexCommandItem) -> Unit
 ) {
-    val filteredItems = remember(allItems, selectedCategory, searchQuery) {
-        allItems.filter { item ->
+    val effectiveList = if (rankedItems.isNotEmpty()) rankedItems else allItems
+    val filteredItems = remember(effectiveList, selectedCategory, searchQuery) {
+        effectiveList.filter { item ->
             val matchesCategory = (selectedCategory == CommandCategory.ALL || item.category == selectedCategory)
             val matchesSearch = if (searchQuery.isBlank()) {
                 true
@@ -2095,13 +2105,199 @@ private fun CommandDirectoryTabContent(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Category Filter Chips Row
+        // 1. Dynamic Context & Prediction Header
+        if (contextSummary.isNotBlank()) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(16.dp)
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_trending_up),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ADAPTIVE PREDICTION ENGINE",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.2.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = contextSummary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "ACTIVE",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Predicted Next Actions Carousel (Horizontal LazyRow)
+        if (predictedCommands.isNotEmpty() && searchQuery.isBlank()) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "PREDICTED NEXT ACTIONS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${predictedCommands.size} PREDICTIONS",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(predictedCommands, key = { it.commandItem.id }) { pred ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onCommandClick(pred.commandItem) }
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.secondaryContainer),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_terminal),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = pred.reason,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = pred.commandItem.title,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+
+                                    Text(
+                                        text = pred.commandItem.command,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Dynamic Category Filter Chips Row
         item {
+            val categories = if (dynamicCategories.isNotEmpty()) dynamicCategories else CommandCategory.values().toList()
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                items(CommandCategory.values()) { cat ->
+                items(categories) { cat ->
                     val isSelected = cat == selectedCategory
                     Surface(
                         color = if (isSelected) {
@@ -2171,12 +2367,18 @@ private fun CommandDirectoryTabContent(
             }
 
             else -> items(filteredItems, key = { it.id }) { item ->
+                val predMatch = predictedCommands.firstOrNull { it.commandItem.id == item.id }
+
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    color = if (predMatch != null) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLow,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                        .border(
+                            if (predMatch != null) 1.dp else 0.8.dp,
+                            if (predMatch != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(14.dp)
+                        )
                         .clip(RoundedCornerShape(14.dp))
                         .clickable { onCommandClick(item) }
                 ) {
@@ -2197,18 +2399,40 @@ private fun CommandDirectoryTabContent(
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_terminal),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = if (predMatch != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = item.title,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (predMatch != null) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = predMatch.reason,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
                             Text(
                                 text = item.description,
                                 fontSize = 12.sp,

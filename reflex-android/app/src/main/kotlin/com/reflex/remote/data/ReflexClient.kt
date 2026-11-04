@@ -300,6 +300,48 @@ class ReflexClient {
         }
     }
 
+    suspend fun fetchRemoteHistory(
+        host: String,
+        port: Int
+    ): Result<List<com.reflex.remote.data.db.CommandEvent>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("http://$host:$port/api/history")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 2500
+                readTimeout = 3000
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+            }
+            if (conn.responseCode in 200..299) {
+                val body = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8)).use { it.readText() }
+                conn.disconnect()
+                val array = org.json.JSONArray(body)
+                val list = mutableListOf<com.reflex.remote.data.db.CommandEvent>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(
+                        com.reflex.remote.data.db.CommandEvent(
+                            commandText = obj.optString("command", ""),
+                            appName = obj.optString("app_name", ""),
+                            windowTitle = obj.optString("window_title", ""),
+                            workspace = obj.optString("workspace", ""),
+                            isMediaPlaying = obj.optBoolean("media_playing", false),
+                            mediaPlayer = obj.optString("media_player", ""),
+                            timestamp = obj.optLong("timestamp_ms", System.currentTimeMillis()),
+                            source = "desktop_sync"
+                        )
+                    )
+                }
+                Result.success(list)
+            } else {
+                conn.disconnect()
+                Result.failure(Exception("HTTP ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun parseDesktopContext(json: JSONObject): DesktopContext {
         val winObj = json.optJSONObject("active_window")
         val activeWindow = if (winObj != null) {

@@ -402,6 +402,23 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
         return;
     }
 
+    if method == "GET" && clean_path == "/api/history" {
+        let history = ctx.command_history.read().await;
+        let entries: Vec<_> = history.iter().cloned().collect();
+        let body = serde_json::to_string(&entries).unwrap_or_default();
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\n\
+            Content-Type: application/json\r\n\
+            Access-Control-Allow-Origin: *\r\n\
+            Content-Length: {}\r\n\
+            Connection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let _ = stream.write_all(resp.as_bytes()).await;
+        return;
+    }
+
     if method == "GET" && clean_path == "/api/media/art" {
         let art_path = CURRENT_ART_FILE
             .read()

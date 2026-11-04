@@ -36,6 +36,7 @@ async fn test_server_e2e_cycle() {
         registry: Arc::new(RwLock::new(registry)),
         guardrails: Arc::new(Mutex::new(guardrails)),
         config,
+        command_history: Arc::new(RwLock::new(std::collections::VecDeque::new())),
     });
 
     let s_path = socket_path.clone();
