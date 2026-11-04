@@ -21,6 +21,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1582,9 +1583,36 @@ private fun AndroidTvDPadWheel(
     onDown: () -> Unit,
     onLeft: () -> Unit,
     onRight: () -> Unit,
-    onCenter: () -> Unit,
+    onMicClick: () -> Unit,
+    onConfirm: () -> Unit,
+    isListening: Boolean,
+    isDispatching: Boolean,
+    audioLevel: Float,
     modifier: Modifier = Modifier
 ) {
+    val pulseActive = isListening || isDispatching
+    val pulseScale by animateFloatAsState(
+        targetValue = if (pulseActive) 1.25f else 1f,
+        animationSpec = if (pulseActive) {
+            infiniteRepeatable(
+                animation = tween(850, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            )
+        } else {
+            tween(150)
+        },
+        label = "dpadPulseScale"
+    )
+
+    val dynamicAudioScale by animateFloatAsState(
+        targetValue = if (isListening) (1.0f + (audioLevel / 18f)).coerceIn(1.0f, 1.4f) else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "dpadAudioScale"
+    )
+
     Box(
         modifier = modifier
             .size(165.dp)
@@ -1661,33 +1689,88 @@ private fun AndroidTvDPadWheel(
             )
         }
 
-        // Center OK button
-        Box(
+        // Center Voice / Tap to Speak Button with Live Audio Pulse
+        if (isListening) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .scale(pulseScale)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(58.dp)
+                    .scale(dynamicAudioScale)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f))
+            )
+        } else if (isDispatching) {
+            Box(
+                modifier = Modifier
+                    .size(62.dp)
+                    .scale(pulseScale)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+            )
+        }
+
+        val buttonGradient = when {
+            isListening -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.error))
+            isDispatching -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary))
+            else -> Brush.radialGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                )
+            )
+        }
+
+        val borderStrokeColor = when {
+            isListening -> MaterialTheme.colorScheme.error
+            isDispatching -> MaterialTheme.colorScheme.secondary
+            else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        }
+
+        @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+        Surface(
             modifier = Modifier
                 .size(58.dp)
                 .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
-                    )
-                )
-                .border(
-                    1.5.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    CircleShape
-                )
-                .clickable(role = Role.Button, onClick = onCenter),
-            contentAlignment = Alignment.Center
+                .combinedClickable(
+                    onClickLabel = if (isListening) "Stop listening" else "Tap to speak",
+                    role = Role.Button,
+                    onClick = onMicClick,
+                    onLongClick = onConfirm
+                ),
+            shape = CircleShape,
+            color = Color.Transparent
         ) {
-            Text(
-                text = "OK",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(buttonGradient)
+                    .border(1.5.dp, borderStrokeColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isDispatching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_mic),
+                        contentDescription = if (isListening) "Listening" else "Tap to speak",
+                        tint = when {
+                            isListening -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -1962,6 +2045,10 @@ private fun SmartTvAppJumpStrip(
 @Composable
 private fun AndroidTvRemoteChassis(
     context: DesktopContext?,
+    isListening: Boolean,
+    isDispatching: Boolean,
+    audioLevel: Float,
+    onMicClick: () -> Unit,
     onCommand: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2062,13 +2149,17 @@ private fun AndroidTvRemoteChassis(
                 )
             }
 
-            // 2. Precision D-Pad Navigation Wheel
+            // 2. Precision D-Pad Navigation Wheel with Center Tap-to-Speak Button
             AndroidTvDPadWheel(
                 onUp = { onCommand("focus up") },
                 onDown = { onCommand("focus down") },
                 onLeft = { onCommand("focus left") },
                 onRight = { onCommand("focus right") },
-                onCenter = { onCommand("press enter") }
+                onMicClick = onMicClick,
+                onConfirm = { onCommand("press enter") },
+                isListening = isListening,
+                isDispatching = isDispatching,
+                audioLevel = audioLevel
             )
 
             // 3. Dual Capsule Rockers (Volume & Workspace)
@@ -2201,16 +2292,6 @@ private fun RemoteTabContent(
             }
         }
 
-        // Top Portion: "tab to speaker one" (Voice Push-to-Talk Hub)
-        item {
-            VoiceHeroSection(
-                isListening = uiState.isListening,
-                isDispatching = uiState.isDispatching,
-                audioLevel = uiState.audioLevel,
-                onMicClick = onMicToggle
-            )
-        }
-
         // Live Voice Transcript & Telemetry (Visible only while actively listening or dispatching)
         if (uiState.isListening || uiState.isDispatching) {
             item {
@@ -2223,10 +2304,14 @@ private fun RemoteTabContent(
             }
         }
 
-        // Bottom Portion: Android TV Remote Chassis
+        // Android TV Remote Chassis with integrated Center Voice Push-to-Talk button
         item {
             AndroidTvRemoteChassis(
                 context = uiState.desktopContext,
+                isListening = uiState.isListening,
+                isDispatching = uiState.isDispatching,
+                audioLevel = uiState.audioLevel,
+                onMicClick = onMicToggle,
                 onCommand = onCommandDispatch
             )
         }
