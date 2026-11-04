@@ -60,8 +60,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
@@ -109,6 +111,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -117,6 +120,7 @@ import com.reflex.remote.data.ReflexResponse
 import com.reflex.remote.data.model.CommandCategory
 import com.reflex.remote.data.model.DesktopContext
 import com.reflex.remote.data.model.ReflexCommandItem
+import com.reflex.remote.data.model.VolumeContext
 import com.reflex.remote.domain.prediction.PredictedCommand
 import com.reflex.remote.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -1413,6 +1417,644 @@ private fun OtoNavigationRail(
 }
 
 // ============================================================================
+// ANDROID TV REMOTE CHASSIS & SMART CONTROLS
+// Modern Android TV Remote Layout for Linux Desktop / Hyprland control
+// ============================================================================
+
+@Composable
+private fun RemoteCircularButton(
+    icon: Int,
+    label: String,
+    tint: Color,
+    containerColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
+        Surface(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onClick),
+            shape = CircleShape,
+            color = containerColor,
+            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = label,
+                    tint = tint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun AndroidTvDPadWheel(
+    onUp: () -> Unit,
+    onDown: () -> Unit,
+    onLeft: () -> Unit,
+    onRight: () -> Unit,
+    onCenter: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(204.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(
+                1.5.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        // Up
+        IconButton(
+            onClick = onUp,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_up),
+                contentDescription = "Focus Up",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // Down
+        IconButton(
+            onClick = onDown,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_down),
+                contentDescription = "Focus Down",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // Left
+        IconButton(
+            onClick = onLeft,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 8.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_left),
+                contentDescription = "Focus Left",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // Right
+        IconButton(
+            onClick = onRight,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_right),
+                contentDescription = "Focus Right",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+
+        // Center OK button
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        )
+                    )
+                )
+                .border(
+                    1.5.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                    CircleShape
+                )
+                .clickable(role = Role.Button, onClick = onCenter),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "OK",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun VolumeCapsuleRocker(
+    volume: VolumeContext?,
+    onVolumeUp: () -> Unit,
+    onVolumeDown: () -> Unit,
+    onMuteToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = modifier
+            .width(76.dp)
+            .height(144.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(
+                onClick = onVolumeUp,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Text(
+                    text = "+",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClick = onMuteToggle)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Icon(
+                    painter = painterResource(if (volume?.isMuted == true) R.drawable.ic_volume_off else R.drawable.ic_volume),
+                    contentDescription = "Mute / Unmute",
+                    tint = if (volume?.isMuted == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = if (volume?.isMuted == true) "MUTE" else "${volume?.percent ?: 50}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            IconButton(
+                onClick = onVolumeDown,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Text(
+                    text = "-",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceCapsuleRocker(
+    activeWs: Int,
+    onWorkspaceNext: () -> Unit,
+    onWorkspacePrev: () -> Unit,
+    onWorkspaceReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = modifier
+            .width(76.dp)
+            .height(144.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(
+                onClick = onWorkspaceNext,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_up),
+                    contentDescription = "Next Workspace",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClick = onWorkspaceReset)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "WS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "$activeWs",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            IconButton(
+                onClick = onWorkspacePrev,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_down),
+                    contentDescription = "Previous Workspace",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SmartAppRemoteButton(
+    appName: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(role = Role.Button, onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            appName.contains("YouTube", ignoreCase = true) -> Color(0xFFFF4444)
+                            appName.contains("Terminal", ignoreCase = true) || appName.contains("Kitty", ignoreCase = true) -> Color(0xFF4ADE80)
+                            appName.contains("Browser", ignoreCase = true) || appName.contains("Brave", ignoreCase = true) -> Color(0xFF38BDF8)
+                            appName.contains("Code", ignoreCase = true) || appName.contains("Antigravity", ignoreCase = true) -> Color(0xFFA855F7)
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                    )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = appName.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.8.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmartTvAppJumpStrip(
+    context: DesktopContext?,
+    onFocusApp: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val runningApps = remember(context?.openWindows) {
+        val detected = context?.openWindows.orEmpty()
+            .map { it.appName.ifBlank { it.className } }
+            .filter { it.isNotBlank() && !it.equals("Desktop", ignoreCase = true) }
+            .distinct()
+
+        val defaults = listOf("YouTube", "Terminal", "Browser", "Editor")
+        (detected + defaults).distinct().take(4)
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "APP JUMP",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            runningApps.getOrNull(0)?.let { app ->
+                SmartAppRemoteButton(
+                    appName = app,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onFocusApp(app) }
+                )
+            }
+            runningApps.getOrNull(1)?.let { app ->
+                SmartAppRemoteButton(
+                    appName = app,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onFocusApp(app) }
+                )
+            }
+        }
+
+        if (runningApps.size > 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                runningApps.getOrNull(2)?.let { app ->
+                    SmartAppRemoteButton(
+                        appName = app,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onFocusApp(app) }
+                    )
+                }
+                runningApps.getOrNull(3)?.let { app ->
+                    SmartAppRemoteButton(
+                        appName = app,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onFocusApp(app) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidTvRemoteChassis(
+    context: DesktopContext?,
+    onCommand: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 18.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            // Remote Brand Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_reflex_logo),
+                        contentDescription = "Reflex Remote",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "REFLEX TV REMOTE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Active Workspace indicator pill
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = "WS ${context?.activeWorkspace ?: 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // 1. Top Utility Row: Power, Back, Fullscreen, Home
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RemoteCircularButton(
+                    icon = R.drawable.ic_power,
+                    label = "Close",
+                    tint = MaterialTheme.colorScheme.error,
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                    onClick = { onCommand("close window") }
+                )
+
+                RemoteCircularButton(
+                    icon = R.drawable.ic_arrow_back,
+                    label = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    onClick = { onCommand("press escape") }
+                )
+
+                RemoteCircularButton(
+                    icon = R.drawable.ic_fullscreen,
+                    label = "Expand",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    onClick = { onCommand("toggle fullscreen") }
+                )
+
+                RemoteCircularButton(
+                    icon = R.drawable.ic_home,
+                    label = "Home",
+                    tint = MaterialTheme.colorScheme.primary,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    onClick = { onCommand("workspace 1") }
+                )
+            }
+
+            // 2. Precision D-Pad Navigation Wheel
+            AndroidTvDPadWheel(
+                onUp = { onCommand("focus up") },
+                onDown = { onCommand("focus down") },
+                onLeft = { onCommand("focus left") },
+                onRight = { onCommand("focus right") },
+                onCenter = { onCommand("press enter") }
+            )
+
+            // 3. Dual Capsule Rockers (Volume & Workspace)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Volume Capsule Rocker
+                VolumeCapsuleRocker(
+                    volume = context?.volume,
+                    onVolumeUp = { onCommand("volume up") },
+                    onVolumeDown = { onCommand("volume down") },
+                    onMuteToggle = { onCommand("toggle mute") }
+                )
+
+                // Workspace Capsule Rocker
+                WorkspaceCapsuleRocker(
+                    activeWs = context?.activeWorkspace ?: 1,
+                    onWorkspaceNext = {
+                        val next = (context?.activeWorkspace ?: 1) + 1
+                        onCommand("workspace $next")
+                    },
+                    onWorkspacePrev = {
+                        val prev = maxOf(1, (context?.activeWorkspace ?: 1) - 1)
+                        onCommand("workspace $prev")
+                    },
+                    onWorkspaceReset = { onCommand("workspace 1") }
+                )
+            }
+
+            // 4. Media Playback Transport Strip
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { onCommand("previous track") },
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_skip_previous),
+                            contentDescription = "Previous Track",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Play/Pause Hero Button
+                    val isPlaying = context?.media?.isPlaying == true
+                    FilledTonalIconButton(
+                        onClick = { onCommand("toggle media") },
+                        modifier = Modifier.size(54.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            painter = painterResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { onCommand("next song") },
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_skip_next),
+                            contentDescription = "Next Track",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // 5. Smart TV App Jump Strip
+            SmartTvAppJumpStrip(
+                context = context,
+                onFocusApp = { appName -> onCommand("focus ${appName.lowercase()}") }
+            )
+        }
+    }
+}
+
+// ============================================================================
 // TAB 1 CONTENT: Remote Voice & Desktop Telemetry
 // With Oto Music Top 4 Buttons, Carousel Cards ("For You Now", "Late Night"),
 // "Hidden gems" quick commands, and Voice input hub
@@ -1466,6 +2108,36 @@ private fun RemoteTabContent(
             )
         }
 
+        // Top Portion: Voice Hero Push-to-Talk Hub ("tab to speaker one")
+        item {
+            VoiceHeroSection(
+                isListening = uiState.isListening,
+                isDispatching = uiState.isDispatching,
+                audioLevel = uiState.audioLevel,
+                onMicClick = onMicToggle
+            )
+        }
+
+        // Live Voice Transcript & Telemetry
+        if (uiState.isListening || uiState.isDispatching || !uiState.currentTranscript.isNullOrBlank() || uiState.lastResponse != null) {
+            item {
+                LiveTranscriptCard(
+                    transcript = uiState.currentTranscript,
+                    isListening = uiState.isListening,
+                    isDispatching = uiState.isDispatching,
+                    lastResponse = uiState.lastResponse
+                )
+            }
+        }
+
+        // Bottom Portion: Android TV Remote Chassis
+        item {
+            AndroidTvRemoteChassis(
+                context = uiState.desktopContext,
+                onCommand = onCommandDispatch
+            )
+        }
+
         // Real-Time Desktop Workspaces & Apps Overview
         if (uiState.desktopContext?.workspaces?.isNotEmpty() == true) {
             item {
@@ -1477,16 +2149,6 @@ private fun RemoteTabContent(
             }
         }
 
-        // Voice Hero Push-to-Talk Hub
-        item {
-            VoiceHeroSection(
-                isListening = uiState.isListening,
-                isDispatching = uiState.isDispatching,
-                audioLevel = uiState.audioLevel,
-                onMicClick = onMicToggle
-            )
-        }
-
         // "Hidden gems" Section: Context-Adaptive Quick Commands
         item {
             OtoHiddenGemsSection(
@@ -1494,16 +2156,6 @@ private fun RemoteTabContent(
                 description = uiState.contextDescription,
                 commands = uiState.suggestedCommands,
                 onCommandClick = onCommandDispatch
-            )
-        }
-
-        // Live Voice Transcript & Telemetry
-        item {
-            LiveTranscriptCard(
-                transcript = uiState.currentTranscript,
-                isListening = uiState.isListening,
-                isDispatching = uiState.isDispatching,
-                lastResponse = uiState.lastResponse
             )
         }
 
