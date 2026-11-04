@@ -81,6 +81,10 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -125,8 +129,10 @@ import com.reflex.remote.data.model.VolumeContext
 import com.reflex.remote.domain.prediction.PredictedCommand
 import com.reflex.remote.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
@@ -144,6 +150,21 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(snackbarHostState) {
+        var snackbarJob: Job? = null
+        viewModel.snackbarMessages.collect { message ->
+            snackbarJob?.cancel()
+            snackbarJob = launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -158,6 +179,14 @@ fun MainScreen(
             containerColor = MaterialTheme.colorScheme.background,
             // Insets are applied once on the outer container, so the scaffold must not re-apply them.
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                ) { data ->
+                    NativeReflexSnackbar(data = data)
+                }
+            },
             topBar = {
                 if (uiState.currentTab == ScreenTab.DIRECTORY) {
                     OtoTopSearchBar(
@@ -2292,18 +2321,6 @@ private fun RemoteTabContent(
             }
         }
 
-        // Live Voice Transcript & Telemetry (Visible only while actively listening or dispatching)
-        if (uiState.isListening || uiState.isDispatching) {
-            item {
-                LiveTranscriptCard(
-                    transcript = uiState.currentTranscript,
-                    isListening = uiState.isListening,
-                    isDispatching = uiState.isDispatching,
-                    lastResponse = uiState.lastResponse
-                )
-            }
-        }
-
         // Android TV Remote Chassis with integrated Center Voice Push-to-Talk button
         item {
             AndroidTvRemoteChassis(
@@ -3133,6 +3150,100 @@ private fun VoiceHeroSection(
             style = MaterialTheme.typography.labelMedium,
             color = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+// ============================================================================
+// NATIVE MATERIAL 3 SNACKBAR COMPONENT
+// ============================================================================
+
+@Composable
+private fun NativeReflexSnackbar(
+    data: SnackbarData,
+    modifier: Modifier = Modifier
+) {
+    val message = data.visuals.message
+    val isError = message.startsWith("Failed", ignoreCase = true) ||
+            message.startsWith("Error", ignoreCase = true)
+    val isListening = message.startsWith("Listening", ignoreCase = true) ||
+            message.startsWith("Heard", ignoreCase = true)
+    val isSuccess = message.startsWith("Executed", ignoreCase = true) ||
+            message.startsWith("Connected", ignoreCase = true) ||
+            message.startsWith("Host connected", ignoreCase = true) ||
+            message.startsWith("Settings saved", ignoreCase = true) ||
+            message.startsWith("History cleared", ignoreCase = true)
+
+    val iconRes = when {
+        isError -> R.drawable.ic_alert
+        isListening -> R.drawable.ic_mic
+        isSuccess -> R.drawable.ic_check
+        else -> R.drawable.ic_terminal
+    }
+
+    val iconTint = when {
+        isError -> MaterialTheme.colorScheme.error
+        isListening -> MaterialTheme.colorScheme.primary
+        isSuccess -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.tertiary
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (data.visuals.actionLabel != null) {
+                TextButton(
+                    onClick = { data.performAction() },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = data.visuals.actionLabel ?: "",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = { data.dismiss() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = "Dismiss",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

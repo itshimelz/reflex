@@ -20,10 +20,12 @@ import com.reflex.remote.domain.prediction.PredictedCommand
 import com.reflex.remote.speech.VoiceRecognitionManager
 import com.reflex.remote.ui.theme.ThemeMode
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -101,6 +103,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         )
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    private val _snackbarMessages = Channel<String>(Channel.BUFFERED)
+    val snackbarMessages = _snackbarMessages.receiveAsFlow()
+
+    fun showSnackbar(message: String) {
+        _snackbarMessages.trySend(message)
+    }
 
     private var voiceManager: VoiceRecognitionManager? = null
     private var pingJob: Job? = null
@@ -222,10 +231,12 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             context = getApplication(),
             onResultRecognized = { text ->
                 _uiState.update { it.copy(currentTranscript = text, isListening = false) }
+                _snackbarMessages.trySend("Heard: \"$text\"")
                 dispatchCommand(text)
             },
             onRecognitionError = { err ->
                 _uiState.update { it.copy(statusBanner = err, isListening = false) }
+                _snackbarMessages.trySend("Voice recognition: $err")
             }
         )
 
@@ -262,11 +273,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startListening() {
         _uiState.update { it.copy(currentTranscript = "", statusBanner = null) }
+        _snackbarMessages.trySend("Listening... Speak your command")
         voiceManager?.startListening()
     }
 
     fun stopListening() {
         voiceManager?.stopListening()
+        _snackbarMessages.trySend("Listening stopped")
     }
 
     fun toggleListening() {
@@ -307,6 +320,13 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                             statusBanner = null
                         )
                     }
+
+                    val feedback = if (resp.isSuccess) {
+                        "Executed: $trimmed (${resp.roundTripMs}ms)"
+                    } else {
+                        "Failed: ${resp.reason?.takeIf { it.isNotBlank() } ?: "Command failed"}"
+                    }
+                    _snackbarMessages.trySend(feedback)
 
                     // Record to local database for next-action sequence and context learning
                     val currentContext = state.desktopContext
@@ -354,6 +374,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                             statusBanner = "Host unreachable: ${err.message}"
                         )
                     }
+                    _snackbarMessages.trySend("Failed: ${err.message ?: "Host unreachable"}")
                 }
             )
         }
@@ -400,6 +421,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                 themeMode = themeMode
             )
         }
+        _snackbarMessages.trySend("Settings saved")
         pingHost()
     }
 
@@ -408,6 +430,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             historyRepository.clearHistory()
             _uiState.update { it.copy(history = emptyList(), lastResponse = null, currentTranscript = "", lastExecutedCommand = null) }
             refreshPredictions()
+            _snackbarMessages.trySend("History cleared")
         }
     }
 
