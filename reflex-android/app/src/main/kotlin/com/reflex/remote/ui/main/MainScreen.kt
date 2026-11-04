@@ -238,6 +238,7 @@ fun MainScreen(
 
                                 ScreenTab.DIRECTORY -> {
                                     CommandDirectoryTabContent(
+                                        desktopContext = uiState.desktopContext,
                                         allItems = uiState.allCommands,
                                         rankedItems = if (uiState.rankedCatalogCommands.isNotEmpty()) uiState.rankedCatalogCommands else uiState.allCommands,
                                         predictedCommands = uiState.predictedCommands,
@@ -1465,6 +1466,17 @@ private fun RemoteTabContent(
             )
         }
 
+        // Real-Time Desktop Workspaces & Apps Overview
+        if (uiState.desktopContext?.workspaces?.isNotEmpty() == true) {
+            item {
+                WorkspaceOverviewSection(
+                    context = uiState.desktopContext,
+                    onWorkspaceClick = onCommandDispatch,
+                    onFocusAppClick = onCommandDispatch
+                )
+            }
+        }
+
         // Voice Hero Push-to-Talk Hub
         item {
             VoiceHeroSection(
@@ -1759,6 +1771,238 @@ private fun CompactHeroStatusRow(
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(if (isMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// WORKSPACE & RUNNING APPS OVERVIEW (Hyprland Real-Time State)
+// Displays open workspaces, active workspace badge, and running apps with direct
+// one-tap focus & workspace switching.
+// ============================================================================
+
+@Composable
+private fun WorkspaceOverviewSection(
+    context: DesktopContext?,
+    onWorkspaceClick: (String) -> Unit,
+    onFocusAppClick: (String) -> Unit
+) {
+    val workspaces = context?.workspaces ?: emptyList()
+    if (workspaces.isEmpty()) return
+
+    val activeWsId = context?.activeWorkspace ?: 1
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Section Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_window),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                Text(
+                    text = "PC WORKSPACES & APPS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "ACTIVE • WS $activeWsId",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Horizontal Row of Workspace Cards
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+        ) {
+            items(workspaces, key = { it.id }) { ws ->
+                val isActiveWs = ws.isActive || ws.id == activeWsId
+                Surface(
+                    modifier = Modifier
+                        .widthIn(min = 150.dp, max = 220.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(
+                            onClickLabel = "Switch to Workspace ${ws.id}",
+                            role = Role.Button
+                        ) {
+                            onWorkspaceClick("workspace ${ws.id}")
+                        },
+                    color = if (isActiveWs) {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(
+                        width = if (isActiveWs) 1.5.dp else 1.dp,
+                        color = if (isActiveWs) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        }
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Card Top: Workspace ID badge + Window count / active indicator
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                color = if (isActiveWs) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                },
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "WS ${ws.id}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isActiveWs) {
+                                        MaterialTheme.colorScheme.onPrimary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    },
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            if (isActiveWs) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                    Text(
+                                        text = "Active",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "${ws.windowCount} ${if (ws.windowCount == 1) "app" else "apps"}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // App list inside this workspace
+                        if (ws.windows.isEmpty()) {
+                            Text(
+                                text = "Empty workspace",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (w in ws.windows.take(3)) {
+                                    Surface(
+                                        color = if (w.isActive) {
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainer
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable(
+                                                onClickLabel = "Focus ${w.appName}",
+                                                role = Role.Button
+                                            ) {
+                                                onFocusAppClick("focus ${w.appName.lowercase().takeWhile { it != '(' }.trim()}")
+                                            }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (w.isActive) MaterialTheme.colorScheme.primary
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    )
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = w.appName,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (w.isActive) FontWeight.Bold else FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (w.title.isNotBlank()) {
+                                                    Text(
+                                                        text = w.title,
+                                                        fontSize = 9.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2272,6 +2516,7 @@ private fun StatusBanner(
 
 @Composable
 private fun CommandDirectoryTabContent(
+    desktopContext: DesktopContext?,
     allItems: List<ReflexCommandItem>,
     rankedItems: List<ReflexCommandItem>,
     predictedCommands: List<PredictedCommand>,
@@ -2375,6 +2620,60 @@ private fun CommandDirectoryTabContent(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Live Workspace Quick-Filter / Switcher Bar
+        if (desktopContext?.workspaces?.isNotEmpty() == true && searchQuery.isBlank()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "WORKSPACES:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.1.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    for (ws in desktopContext.workspaces) {
+                        val isAct = ws.isActive || ws.id == desktopContext.activeWorkspace
+                        Surface(
+                            color = if (isAct) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isAct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onCommandClick(
+                                        ReflexCommandItem(
+                                            id = "dir_ws_${ws.id}",
+                                            title = "Workspace ${ws.id}",
+                                            command = "workspace ${ws.id}",
+                                            category = CommandCategory.WINDOW,
+                                            description = "Switch to Workspace ${ws.id}"
+                                        )
+                                    )
+                                }
+                        ) {
+                            val appSummary = ws.windows.firstOrNull()?.appName ?: "Empty"
+                            Text(
+                                text = "WS ${ws.id} ($appSummary)",
+                                fontSize = 11.sp,
+                                fontWeight = if (isAct) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isAct) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }

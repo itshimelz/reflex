@@ -13,6 +13,7 @@ import com.reflex.remote.data.model.CommandCategory
 import com.reflex.remote.data.model.DesktopContext
 import com.reflex.remote.data.model.ReflexCommandItem
 import com.reflex.remote.data.source.AssetCommandDataSource
+import com.reflex.remote.domain.DynamicWorkspaceCommandGenerator
 import com.reflex.remote.domain.SmartCommandSuggester
 import com.reflex.remote.domain.prediction.CommandPredictionEngine
 import com.reflex.remote.domain.prediction.PredictedCommand
@@ -104,6 +105,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private var voiceManager: VoiceRecognitionManager? = null
     private var pingJob: Job? = null
     private var contextPollingJob: Job? = null
+    private var baseAssetCommands: List<ReflexCommandItem> = emptyList()
 
     init {
         loadCommands()
@@ -115,11 +117,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     private fun loadCommands() {
         viewModelScope.launch {
             val items = commandDataSource.loadAllCommands()
+            baseAssetCommands = items
             _uiState.update { current ->
-                val suggestion = SmartCommandSuggester.suggestCommands(current.desktopContext, items)
+                val dynamicItems = DynamicWorkspaceCommandGenerator.generateCommands(current.desktopContext)
+                val combined = dynamicItems + items
+                val suggestion = SmartCommandSuggester.suggestCommands(current.desktopContext, combined)
                 current.copy(
-                    allCommands = items,
-                    rankedCatalogCommands = items,
+                    allCommands = combined,
+                    rankedCatalogCommands = combined,
                     contextBadge = suggestion.contextBadge,
                     contextDescription = suggestion.contextDescription,
                     suggestedCommands = suggestion.commands
@@ -157,10 +162,14 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun updateContext(context: DesktopContext) {
+        val dynamicItems = DynamicWorkspaceCommandGenerator.generateCommands(context)
+        val combined = dynamicItems + baseAssetCommands
+
         _uiState.update { current ->
-            val suggestion = SmartCommandSuggester.suggestCommands(context, current.allCommands)
+            val suggestion = SmartCommandSuggester.suggestCommands(context, combined)
             current.copy(
                 desktopContext = context,
+                allCommands = combined,
                 contextBadge = suggestion.contextBadge,
                 contextDescription = suggestion.contextDescription,
                 suggestedCommands = if (current.predictedCommands.isNotEmpty()) {

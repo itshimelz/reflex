@@ -2,8 +2,10 @@ package com.reflex.remote.data
 
 import com.reflex.remote.data.model.ActiveWindowContext
 import com.reflex.remote.data.model.DesktopContext
+import com.reflex.remote.data.model.DesktopWindow
 import com.reflex.remote.data.model.MediaContext
 import com.reflex.remote.data.model.VolumeContext
+import com.reflex.remote.data.model.WorkspaceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -392,10 +394,72 @@ class ReflexClient {
             VolumeContext()
         }
 
+        val activeWs = if (json.has("active_workspace") && !json.isNull("active_workspace")) {
+            json.optInt("active_workspace")
+        } else {
+            activeWindow.workspace ?: 1
+        }
+
+        val parsedWindows = mutableListOf<DesktopWindow>()
+        val winsArray = json.optJSONArray("windows")
+        if (winsArray != null) {
+            for (i in 0 until winsArray.length()) {
+                val wObj = winsArray.optJSONObject(i) ?: continue
+                parsedWindows.add(
+                    DesktopWindow(
+                        address = wObj.optString("address", ""),
+                        className = wObj.optString("class", ""),
+                        title = wObj.optString("title", ""),
+                        appName = wObj.optString("app_name", ""),
+                        workspace = wObj.optInt("workspace", 1),
+                        isActive = wObj.optBoolean("is_active", false)
+                    )
+                )
+            }
+        }
+
+        val parsedWorkspaces = mutableListOf<WorkspaceState>()
+        val wsArray = json.optJSONArray("workspaces")
+        if (wsArray != null) {
+            for (i in 0 until wsArray.length()) {
+                val wsObj = wsArray.optJSONObject(i) ?: continue
+                val wsId = wsObj.optInt("id", 1)
+                val wsWins = mutableListOf<DesktopWindow>()
+                val innerWins = wsObj.optJSONArray("windows")
+                if (innerWins != null) {
+                    for (j in 0 until innerWins.length()) {
+                        val iw = innerWins.optJSONObject(j) ?: continue
+                        wsWins.add(
+                            DesktopWindow(
+                                address = iw.optString("address", ""),
+                                className = iw.optString("class", ""),
+                                title = iw.optString("title", ""),
+                                appName = iw.optString("app_name", ""),
+                                workspace = iw.optInt("workspace", wsId),
+                                isActive = iw.optBoolean("is_active", false)
+                            )
+                        )
+                    }
+                }
+                parsedWorkspaces.add(
+                    WorkspaceState(
+                        id = wsId,
+                        name = wsObj.optString("name", wsId.toString()),
+                        isActive = wsObj.optBoolean("is_active", wsId == activeWs),
+                        windowCount = wsObj.optInt("window_count", wsWins.size),
+                        windows = wsWins
+                    )
+                )
+            }
+        }
+
         return DesktopContext(
             activeWindow = activeWindow,
             media = media,
-            volume = volume
+            volume = volume,
+            activeWorkspace = activeWs,
+            workspaces = parsedWorkspaces,
+            openWindows = parsedWindows
         )
     }
 }

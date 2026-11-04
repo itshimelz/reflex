@@ -7,6 +7,23 @@ data class ActiveWindowContext(
     val workspace: Int? = null
 )
 
+data class DesktopWindow(
+    val address: String = "",
+    val className: String = "",
+    val title: String = "",
+    val appName: String = "",
+    val workspace: Int = 1,
+    val isActive: Boolean = false
+)
+
+data class WorkspaceState(
+    val id: Int = 1,
+    val name: String = "1",
+    val isActive: Boolean = false,
+    val windowCount: Int = 0,
+    val windows: List<DesktopWindow> = emptyList()
+)
+
 data class MediaContext(
     val player: String = "",
     val title: String = "",
@@ -28,5 +45,8 @@ data class VolumeContext(
 data class DesktopContext(
     val activeWindow: ActiveWindowContext = ActiveWindowContext(),
     val media: MediaContext = MediaContext(),
-    val volume: VolumeContext = VolumeContext()
+    val volume: VolumeContext = VolumeContext(),
+    val activeWorkspace: Int = activeWindow.workspace ?: 1,
+    val workspaces: List<WorkspaceState> = emptyList(),
+    val openWindows: List<DesktopWindow> = emptyList()
 )

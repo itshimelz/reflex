@@ -35,13 +35,6 @@ struct CommandPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DesktopContextPayload {
-    pub active_window: Option<WindowInfo>,
-    pub media: Option<MediaInfo>,
-    pub volume: Option<VolumeInfo>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowInfo {
     pub class: String,
     pub title: String,
@@ -66,57 +59,216 @@ pub struct VolumeInfo {
     pub muted: bool,
 }
 
-pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload {
-    // 1. Fetch active window from Hyprland driver
-    let active_window = if let Some(ref hl) = ctx.hyprland {
-        match hl.fetch_active_window().await {
-            Ok(Some(w)) => {
-                let class_lower = w.class.to_lowercase();
-                let title_lower = w.title.to_lowercase();
-                let app_name = if class_lower.contains("dolphin")
-                    || class_lower.contains("nautilus")
-                    || class_lower.contains("thunar")
-                {
-                    "dolphin".to_string()
-                } else if class_lower.contains("brave")
-                    || class_lower.contains("chrome")
-                    || class_lower.contains("firefox")
-                {
-                    if title_lower.contains("youtube") {
-                        "youtube".to_string()
-                    } else {
-                        "browser".to_string()
-                    }
-                } else if class_lower.contains("spotify") || title_lower.contains("spotify") {
-                    "spotify".to_string()
-                } else if class_lower.contains("kitty")
-                    || class_lower.contains("alacritty")
-                    || class_lower.contains("foot")
-                    || class_lower.contains("terminal")
-                {
-                    "terminal".to_string()
-                } else if class_lower.contains("code")
-                    || class_lower.contains("nvim")
-                    || class_lower.contains("antigravity")
-                    || class_lower.contains("studio")
-                    || class_lower.contains("idea")
-                {
-                    "editor".to_string()
-                } else {
-                    w.class.split('-').next().unwrap_or(&w.class).to_string()
-                };
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesktopWindowPayload {
+    pub address: String,
+    pub class: String,
+    pub title: String,
+    pub app_name: String,
+    pub workspace: i32,
+    pub is_active: bool,
+}
 
-                Some(WindowInfo {
-                    class: w.class,
-                    title: w.title,
-                    app_name,
-                    workspace: w.workspace,
-                })
-            }
-            _ => None,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspacePayload {
+    pub id: i32,
+    pub name: String,
+    pub is_active: bool,
+    pub window_count: usize,
+    pub windows: Vec<DesktopWindowPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesktopContextPayload {
+    pub active_window: Option<WindowInfo>,
+    pub media: Option<MediaInfo>,
+    pub volume: Option<VolumeInfo>,
+    #[serde(default)]
+    pub active_workspace: Option<i32>,
+    #[serde(default)]
+    pub workspaces: Vec<WorkspacePayload>,
+    #[serde(default)]
+    pub windows: Vec<DesktopWindowPayload>,
+}
+
+#[derive(Deserialize)]
+struct RawActiveWs {
+    id: i32,
+    #[serde(default)]
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct RawWsItem {
+    id: i32,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    windows: usize,
+}
+
+#[derive(Deserialize)]
+struct RawClientItem {
+    #[serde(default)]
+    address: String,
+    #[serde(default)]
+    class: String,
+    #[serde(default)]
+    title: String,
+    workspace: RawClientWs,
+    #[serde(default, rename = "focusHistoryID")]
+    focus_history_id: i32,
+}
+
+#[derive(Deserialize)]
+struct RawClientWs {
+    id: i32,
+    #[serde(default)]
+    name: String,
+}
+
+pub fn resolve_app_display_name(class: &str, title: &str) -> String {
+    let class_lower = class.to_lowercase();
+    let title_lower = title.to_lowercase();
+
+    if class_lower.contains("dolphin") || class_lower.contains("nautilus") || class_lower.contains("thunar") {
+        "Dolphin".to_string()
+    } else if class_lower.contains("brave") {
+        if title_lower.contains("youtube") {
+            "YouTube".to_string()
+        } else {
+            "Brave".to_string()
+        }
+    } else if class_lower.contains("chrome") {
+        if title_lower.contains("youtube") {
+            "YouTube".to_string()
+        } else {
+            "Chrome".to_string()
+        }
+    } else if class_lower.contains("firefox") {
+        if title_lower.contains("youtube") {
+            "YouTube".to_string()
+        } else {
+            "Firefox".to_string()
+        }
+    } else if class_lower.contains("spotify") {
+        "Spotify".to_string()
+    } else if class_lower.contains("kitty") {
+        "Kitty".to_string()
+    } else if class_lower.contains("alacritty") {
+        "Alacritty".to_string()
+    } else if class_lower.contains("ghostty") {
+        "Ghostty".to_string()
+    } else if class_lower.contains("terminal") || class_lower.contains("foot") {
+        "Terminal".to_string()
+    } else if class_lower.contains("antigravity") {
+        "Antigravity".to_string()
+    } else if class_lower.contains("code") || class_lower.contains("cursor") {
+        "VS Code".to_string()
+    } else if class_lower.contains("nvim") || class_lower.contains("neovim") {
+        "Neovim".to_string()
+    } else if class_lower.contains("discord") || class_lower.contains("vesktop") {
+        "Discord".to_string()
+    } else if class_lower.contains("slack") {
+        "Slack".to_string()
+    } else if class_lower.contains("telegram") {
+        "Telegram".to_string()
+    } else if !class.is_empty() {
+        let clean = class.split('-').next().unwrap_or(class);
+        let mut chars = clean.chars();
+        match chars.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
         }
     } else {
-        None
+        "Application".to_string()
+    }
+}
+
+pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload {
+    // 1. Fetch Hyprland active window, workspaces, and open client windows
+    let (active_window, active_workspace, workspaces, windows) = if let Some(ref hl) = ctx.hyprland {
+        let active_win = match hl.fetch_active_window().await {
+            Ok(Some(w)) => {
+                let app_name = resolve_app_display_name(&w.class, &w.title).to_lowercase();
+                Some((
+                    WindowInfo {
+                        class: w.class.clone(),
+                        title: w.title.clone(),
+                        app_name,
+                        workspace: w.workspace,
+                    },
+                    w.address.clone(),
+                ))
+            }
+            _ => None,
+        };
+
+        let active_addr = active_win.as_ref().map(|(_, addr)| addr.clone()).unwrap_or_default();
+        let win_info = active_win.map(|(w, _)| w);
+
+        let active_ws_id = match hl.dispatch_raw("j/activeworkspace").await {
+            Ok(json_str) => serde_json::from_str::<RawActiveWs>(&json_str).ok().map(|a| a.id),
+            _ => None,
+        }.or_else(|| win_info.as_ref().map(|w| w.workspace as i32));
+
+        let raw_workspaces: Vec<RawWsItem> = match hl.dispatch_raw("j/workspaces").await {
+            Ok(json_str) => serde_json::from_str::<Vec<RawWsItem>>(&json_str).unwrap_or_default(),
+            _ => Vec::new(),
+        };
+
+        let raw_clients: Vec<RawClientItem> = match hl.dispatch_raw("j/clients").await {
+            Ok(json_str) => serde_json::from_str::<Vec<RawClientItem>>(&json_str).unwrap_or_default(),
+            _ => Vec::new(),
+        };
+
+        let mut parsed_windows: Vec<DesktopWindowPayload> = Vec::new();
+        for client in raw_clients {
+            if client.workspace.id <= 0 {
+                continue;
+            }
+            let is_active = (!active_addr.is_empty() && client.address == active_addr) || client.focus_history_id == 0;
+            let friendly_name = resolve_app_display_name(&client.class, &client.title);
+            parsed_windows.push(DesktopWindowPayload {
+                address: client.address,
+                class: client.class,
+                title: client.title,
+                app_name: friendly_name,
+                workspace: client.workspace.id,
+                is_active,
+            });
+        }
+
+        // Group into workspaces
+        let mut ws_map: std::collections::BTreeMap<i32, (String, Vec<DesktopWindowPayload>)> = std::collections::BTreeMap::new();
+
+        for rw in raw_workspaces {
+            if rw.id > 0 {
+                ws_map.entry(rw.id).or_insert_with(|| (rw.name, Vec::new()));
+            }
+        }
+
+        for w in &parsed_windows {
+            let entry = ws_map.entry(w.workspace).or_insert_with(|| (w.workspace.to_string(), Vec::new()));
+            entry.1.push(w.clone());
+        }
+
+        let mut final_workspaces: Vec<WorkspacePayload> = Vec::new();
+        for (id, (name, wins)) in ws_map {
+            let is_act = active_ws_id == Some(id);
+            let count = wins.len();
+            final_workspaces.push(WorkspacePayload {
+                id,
+                name: if name.is_empty() { id.to_string() } else { name },
+                is_active: is_act,
+                window_count: count,
+                windows: wins,
+            });
+        }
+
+        (win_info, active_ws_id, final_workspaces, parsed_windows)
+    } else {
+        (None, None, Vec::new(), Vec::new())
     };
 
     // 2. Fetch media info via playerctl (querying all players with -a to find the richest metadata)
@@ -271,6 +423,9 @@ pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload
         active_window,
         media,
         volume,
+        active_workspace,
+        workspaces,
+        windows,
     }
 }
 

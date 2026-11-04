@@ -1,35 +1,35 @@
 [
   {
-    "id": "focus_workspace_3",
-    "title": "Switch Workspace 3",
-    "command": "workspace 3",
+    "id": "workspace_next",
+    "title": "Next Workspace",
+    "command": "workspace next",
     "category": "WINDOW",
-    "description": "Switch active Hyprland workspace to workspace 3 instantly (<1ms)",
-    "aliases": ["go to workspace 3", "switch to workspace 3", "switch to 3", "workspace 1", "workspace 2", "workspace 4"]
+    "description": "Cycle forward to the next desktop workspace (<1ms)",
+    "aliases": ["next workspace", "go to next workspace", "switch next", "workspace right"]
   },
   {
-    "id": "move_workspace",
-    "title": "Move Window to Workspace 4",
-    "command": "move to 4",
+    "id": "workspace_prev",
+    "title": "Previous Workspace",
+    "command": "workspace prev",
     "category": "WINDOW",
-    "description": "Move active window to target workspace without shifting user focus",
-    "aliases": ["move window to workspace 6", "move this window workspace 6", "move this to workspace 2"]
+    "description": "Cycle backward to the previous desktop workspace (<1ms)",
+    "aliases": ["previous workspace", "go to previous workspace", "prev workspace", "workspace left"]
   },
   {
-    "id": "move_window_follow",
-    "title": "Move Window & Follow",
-    "command": "move to 6 and follow",
+    "id": "move_window_next",
+    "title": "Move Window to Next WS",
+    "command": "move to next",
     "category": "WINDOW",
-    "description": "Move active window to target workspace and switch user focus with it",
-    "aliases": ["move window to workspace 3 follow", "move and follow"]
+    "description": "Move active window to the next adjacent workspace",
+    "aliases": ["move window next", "move to next workspace", "send window next"]
   },
   {
-    "id": "move_youtube_workspace",
-    "title": "Move YouTube to Workspace 4",
-    "command": "move YouTube to 4",
+    "id": "move_window_prev",
+    "title": "Move Window to Prev WS",
+    "command": "move to prev",
     "category": "WINDOW",
-    "description": "Resolve target app via 4-Tier AppRegistry and move its window to workspace 4",
-    "aliases": ["move Chrome to workspace 6", "move Spotify 2", "move WhatsApp to 5 and follow"]
+    "description": "Move active window to the previous adjacent workspace",
+    "aliases": ["move window prev", "move to previous workspace", "send window prev"]
   },
   {
     "id": "focus_direction",

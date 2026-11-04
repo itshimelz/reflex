@@ -105,10 +105,17 @@ object CommandPredictionEngine {
                 }
             }
 
-            val totalScore = transitionScore + appScore + mediaScore + wsScore + recencyScore
+            // 6. Dynamic Contextual Command Boost
+            val isDynamic = cmdId.startsWith("dyn_")
+            val dynamicPrior = if (isDynamic) 3.5f else 0f
+
+            val totalScore = transitionScore + appScore + mediaScore + wsScore + recencyScore + dynamicPrior
 
             // Determine dominant factor for human reason tag
             val reason = when {
+                isDynamic && cmdId.startsWith("dyn_switch_ws_") -> "Open Workspace"
+                isDynamic && cmdId.startsWith("dyn_focus_") -> "Running App Focus"
+                isDynamic && cmdId.startsWith("dyn_move_") -> "Window Move Action"
                 transitionScore > 3.0f && transitionScore >= appScore && transitionScore >= mediaScore -> {
                     if (effectiveLastCommand != null) "Follows \"$effectiveLastCommand\"" else "Sequence Prediction"
                 }
