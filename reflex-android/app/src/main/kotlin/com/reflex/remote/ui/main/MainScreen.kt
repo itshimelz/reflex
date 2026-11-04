@@ -1,56 +1,62 @@
 package com.reflex.remote.ui.main
 
+import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +64,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -68,6 +77,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,13 +93,18 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,6 +115,12 @@ import com.reflex.remote.data.model.CommandCategory
 import com.reflex.remote.data.model.DesktopContext
 import com.reflex.remote.data.model.ReflexCommandItem
 import com.reflex.remote.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 // ============================================================================
 // Main Application Screen (Oto Music Reverse-Engineered Architecture)
@@ -115,110 +136,157 @@ fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .navigationBarsPadding(),
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            OtoTopSearchBar(
-                query = uiState.topSearchQuery,
-                onQueryChange = { q ->
-                    viewModel.setTopSearchQuery(q)
-                    if (q.isNotBlank() && uiState.currentTab != ScreenTab.DIRECTORY) {
-                        viewModel.setTab(ScreenTab.DIRECTORY)
-                    }
-                    viewModel.setDirectorySearchQuery(q)
-                },
-                connectionState = uiState.connectionState,
-                onPingClick = { viewModel.pingHost() },
-                onMenuClick = { viewModel.openSettingsDialog() }
-            )
-        },
-        bottomBar = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Docked Mini Player (Exact Oto Music Bottom Sheet Peek)
-                OtoMiniPlayer(
-                    context = uiState.desktopContext,
-                    isDispatching = uiState.isDispatching,
-                    onExpandClick = { viewModel.setMediaSheetExpanded(true) },
-                    onPlayPauseClick = { viewModel.togglePlayPause() },
-                    onNextClick = { viewModel.skipNext() },
-                    onPrevClick = { viewModel.skipPrevious() }
+            .navigationBarsPadding()
+    ) {
+        // Expanded widths restructure to a navigation rail; compact keeps the bar.
+        val useRail = maxWidth >= 600.dp
+
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            // Insets are applied once on the outer container, so the scaffold must not re-apply them.
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {
+                OtoTopSearchBar(
+                    query = uiState.topSearchQuery,
+                    onQueryChange = { q ->
+                        viewModel.setTopSearchQuery(q)
+                        if (q.isNotBlank() && uiState.currentTab != ScreenTab.DIRECTORY) {
+                            viewModel.setTab(ScreenTab.DIRECTORY)
+                        }
+                        viewModel.setDirectorySearchQuery(q)
+                    },
+                    connectionState = uiState.connectionState,
+                    onPingClick = { viewModel.pingHost() },
+                    onMenuClick = { viewModel.setTab(ScreenTab.SETTINGS) }
                 )
-
-                // Exact Oto Music Bottom Navigation Bar
-                OtoBottomNavigationBar(
-                    currentTab = uiState.currentTab,
-                    onTabSelect = { tab -> viewModel.setTab(tab) }
-                )
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            AnimatedContent(
-                targetState = uiState.currentTab,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
-                            fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
-                },
-                label = "TabContentTransition"
-            ) { tab ->
-                when (tab) {
-                    ScreenTab.REMOTE -> {
-                        RemoteTabContent(
-                            uiState = uiState,
-                            onMicToggle = { viewModel.toggleListening() },
-                            onCommandDispatch = { cmd -> viewModel.dispatchCommand(cmd) },
-                            onClearHistory = { viewModel.clearHistory() },
-                            onDismissBanner = { viewModel.dismissBanner() },
-                            onRefreshContext = { viewModel.pingHost() },
-                            onOpenMediaSheet = { viewModel.setMediaSheetExpanded(true) },
-                            onOpenDirectory = { viewModel.setTab(ScreenTab.DIRECTORY) }
+            },
+            bottomBar = {
+                if (!useRail) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Docked Mini Player (Exact Oto Music Bottom Sheet Peek)
+                        OtoMiniPlayer(
+                            context = uiState.desktopContext,
+                            pcHost = uiState.pcHost,
+                            pcPort = uiState.pcPort,
+                            isDispatching = uiState.isDispatching,
+                            onExpandClick = { viewModel.setMediaSheetExpanded(true) },
+                            onPlayPauseClick = { viewModel.togglePlayPause() },
+                            onNextClick = { viewModel.skipNext() },
+                            onPrevClick = { viewModel.skipPrevious() }
                         )
-                    }
 
-                    ScreenTab.DIRECTORY -> {
-                        CommandDirectoryTabContent(
-                            allItems = uiState.allCommands,
-                            selectedCategory = uiState.directoryCategory,
-                            searchQuery = uiState.directorySearchQuery,
-                            onCategoryChange = { cat -> viewModel.setDirectoryCategory(cat) },
-                            onSearchQueryChange = { q -> viewModel.setDirectorySearchQuery(q) },
-                            onCommandClick = { item -> viewModel.dispatchCommand(item.command) }
-                        )
-                    }
-
-                    ScreenTab.SETTINGS -> {
-                        SettingsTabContent(
-                            uiState = uiState,
-                            onSaveSettings = { host, port, mode ->
-                                viewModel.saveSettings(host, port, mode)
-                            },
-                            onPing = { viewModel.pingHost() }
+                        // Exact Oto Music Bottom Navigation Bar
+                        OtoBottomNavigationBar(
+                            currentTab = uiState.currentTab,
+                            onTabSelect = { tab -> viewModel.setTab(tab) }
                         )
                     }
                 }
             }
+        ) { innerPadding ->
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                if (useRail) {
+                    OtoNavigationRail(
+                        currentTab = uiState.currentTab,
+                        onTabSelect = { tab -> viewModel.setTab(tab) }
+                    )
+                }
 
-            // Full Media Control Bottom Sheet (ModalBottomSheet component)
-            if (uiState.isMediaSheetExpanded) {
-                OtoMediaBottomSheet(
-                    context = uiState.desktopContext,
-                    connectionState = uiState.connectionState,
-                    onDismiss = { viewModel.setMediaSheetExpanded(false) },
-                    onPlayPause = { viewModel.togglePlayPause() },
-                    onNext = { viewModel.skipNext() },
-                    onPrev = { viewModel.skipPrevious() },
-                    onToggleMute = { viewModel.toggleMute() },
-                    onVolumeChange = { pct -> viewModel.setVolume(pct) },
-                    onCommandDispatch = { cmd -> viewModel.dispatchCommand(cmd) }
-                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        AnimatedContent(
+                            targetState = uiState.currentTab,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
+                                        fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+                            },
+                            label = "TabContentTransition"
+                        ) { tab ->
+                            when (tab) {
+                                ScreenTab.REMOTE -> {
+                                    RemoteTabContent(
+                                        uiState = uiState,
+                                        onMicToggle = { viewModel.toggleListening() },
+                                        onCommandDispatch = { cmd -> viewModel.dispatchCommand(cmd) },
+                                        onClearHistory = { viewModel.clearHistory() },
+                                        onDismissBanner = { viewModel.dismissBanner() },
+                                        onRefreshContext = { viewModel.pingHost() },
+                                        onOpenMediaSheet = { viewModel.setMediaSheetExpanded(true) },
+                                        onOpenDirectory = { viewModel.setTab(ScreenTab.DIRECTORY) }
+                                    )
+                                }
+
+                                ScreenTab.DIRECTORY -> {
+                                    CommandDirectoryTabContent(
+                                        allItems = uiState.allCommands,
+                                        selectedCategory = uiState.directoryCategory,
+                                        searchQuery = uiState.directorySearchQuery,
+                                        onCategoryChange = { cat -> viewModel.setDirectoryCategory(cat) },
+                                        onSearchQueryChange = { q -> viewModel.setDirectorySearchQuery(q) },
+                                        onCommandClick = { item -> viewModel.dispatchCommand(item.command) }
+                                    )
+                                }
+
+                                ScreenTab.SETTINGS -> {
+                                    SettingsTabContent(
+                                        uiState = uiState,
+                                        onSaveSettings = { host, port, mode ->
+                                            viewModel.saveSettings(host, port, mode)
+                                        },
+                                        onPing = { viewModel.pingHost() },
+                                        onThemeChange = { mode -> viewModel.setThemeMode(mode) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Full Media Control Bottom Sheet (ModalBottomSheet component)
+                        if (uiState.isMediaSheetExpanded) {
+                            OtoMediaBottomSheet(
+                                context = uiState.desktopContext,
+                                pcHost = uiState.pcHost,
+                                pcPort = uiState.pcPort,
+                                connectionState = uiState.connectionState,
+                                onDismiss = { viewModel.setMediaSheetExpanded(false) },
+                                onPlayPause = { viewModel.togglePlayPause() },
+                                onNext = { viewModel.skipNext() },
+                                onPrev = { viewModel.skipPrevious() },
+                                onSeek = { sec -> viewModel.seekTo(sec) },
+                                onToggleMute = { viewModel.toggleMute() },
+                                onVolumeChange = { pct -> viewModel.setVolume(pct) }
+                            )
+                        }
+                    }
+
+                    if (useRail) {
+                        OtoMiniPlayer(
+                            context = uiState.desktopContext,
+                            pcHost = uiState.pcHost,
+                            pcPort = uiState.pcPort,
+                            isDispatching = uiState.isDispatching,
+                            onExpandClick = { viewModel.setMediaSheetExpanded(true) },
+                            onPlayPauseClick = { viewModel.togglePlayPause() },
+                            onNextClick = { viewModel.skipNext() },
+                            onPrevClick = { viewModel.skipPrevious() }
+                        )
+                    }
+                }
             }
         }
     }
@@ -241,10 +309,10 @@ private fun OtoTopSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(52.dp),
-        shape = RoundedCornerShape(26.dp),
-        color = OtoSearchBarBg,
-        border = androidx.compose.foundation.BorderStroke(1.dp, OtoDarkOutline)
+            .height(56.dp),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
             modifier = Modifier
@@ -256,12 +324,12 @@ private fun OtoTopSearchBar(
             // Left: Hamburger Menu Icon Button
             IconButton(
                 onClick = onMenuClick,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_menu),
                     contentDescription = "Menu",
-                    tint = OtoSearchIcon,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -278,7 +346,7 @@ private fun OtoTopSearchBar(
                         text = "Search your commands",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Normal,
-                        color = OtoSearchPlaceholder
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 BasicTextField(
@@ -286,41 +354,60 @@ private fun OtoTopSearchBar(
                     onValueChange = onQueryChange,
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = OtoTextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Normal
                     ),
-                    cursorBrush = SolidColor(OtoPlayerPlayBtnBg),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Right: Cast / Connection Status Pill
+            // Right: connection status pill, tap to re-check
+            val statusLabel = when (connectionState) {
+                is ConnectionState.Online -> "Online, ${connectionState.latencyMs} milliseconds. Tap to re-check"
+                is ConnectionState.Offline -> "Offline. Tap to retry"
+                ConnectionState.Checking -> "Checking connection"
+                ConnectionState.Idle -> "Not connected. Tap to retry"
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = onPingClick)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .clickable(
+                        onClickLabel = "Re-check connection",
+                        role = Role.Button,
+                        onClick = onPingClick
+                    )
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 8.dp)
             ) {
-                val isOnline = connectionState is ConnectionState.Online
-                val latencyText = if (isOnline) "${(connectionState as ConnectionState.Online).latencyMs}ms" else ""
-
-                if (latencyText.isNotBlank()) {
+                if (connectionState is ConnectionState.Online) {
                     Text(
-                        text = latencyText,
+                        text = "${connectionState.latencyMs}ms",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = OtoOnlineGreen
+                        color = MaterialTheme.colorScheme.tertiary
                     )
                 }
 
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_cast),
-                    contentDescription = "Connection Status",
-                    tint = if (isOnline) OtoOnlineGreen else OtoSearchIcon,
+                    painter = painterResource(
+                        id = if (connectionState is ConnectionState.Online) {
+                            R.drawable.ic_wifi_connected
+                        } else {
+                            R.drawable.ic_wifi_disconnected
+                        }
+                    ),
+                    contentDescription = statusLabel,
+                    tint = if (connectionState is ConnectionState.Online) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -329,16 +416,16 @@ private fun OtoTopSearchBar(
 }
 
 // ============================================================================
-// COMPONENT 2: Top 4 Action Buttons (Exact Oto Music Circular Action Hub)
-// History (Blue), Favorites (Magenta), Most Played (Amber), Shuffle (Emerald)
+// COMPONENT 2: Quick action hub
+// Four shortcuts, each labelled with the action it actually performs.
 // ============================================================================
 
 @Composable
 private fun OtoTopActionButtons(
-    onHistoryClick: () -> Unit,
-    onFavoritesClick: () -> Unit,
-    onMostPlayedClick: () -> Unit,
-    onShuffleClick: () -> Unit
+    onCommandsClick: () -> Unit,
+    onVoiceClick: () -> Unit,
+    onMediaClick: () -> Unit,
+    onRefreshClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -347,40 +434,36 @@ private fun OtoTopActionButtons(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Button 1: History
         OtoCircularButton(
-            title = "History",
-            backgroundColor = OtoHistoryBg,
-            iconTint = OtoHistoryIcon,
-            iconRes = R.drawable.ic_history,
-            onClick = onHistoryClick
+            title = "Commands",
+            backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+            iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+            iconRes = R.drawable.ic_terminal,
+            onClick = onCommandsClick
         )
 
-        // Button 2: Favorites / Quick
         OtoCircularButton(
-            title = "Favorites",
-            backgroundColor = OtoFavoritesBg,
-            iconTint = OtoFavoritesIcon,
-            iconRes = R.drawable.ic_favorite,
-            onClick = onFavoritesClick
+            title = "Voice",
+            backgroundColor = MaterialTheme.colorScheme.errorContainer,
+            iconTint = MaterialTheme.colorScheme.onErrorContainer,
+            iconRes = R.drawable.ic_mic,
+            onClick = onVoiceClick
         )
 
-        // Button 3: Most played / Media Control
         OtoCircularButton(
-            title = "Most played",
-            backgroundColor = OtoMostPlayedBg,
-            iconTint = OtoMostPlayedIcon,
-            iconRes = R.drawable.ic_trending_up,
-            onClick = onMostPlayedClick
+            title = "Media",
+            backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+            iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+            iconRes = R.drawable.ic_music_note,
+            onClick = onMediaClick
         )
 
-        // Button 4: Shuffle / Commands
         OtoCircularButton(
-            title = "Shuffle",
-            backgroundColor = OtoShuffleBg,
-            iconTint = OtoShuffleIcon,
-            iconRes = R.drawable.ic_shuffle,
-            onClick = onShuffleClick
+            title = "Refresh",
+            backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+            iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
+            iconRes = R.drawable.ic_refresh,
+            onClick = onRefreshClick
         )
     }
 }
@@ -396,18 +479,21 @@ private fun OtoCircularButton(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = title, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
+                .size(60.dp)
                 .clip(CircleShape)
                 .background(backgroundColor),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(id = iconRes),
-                contentDescription = title,
+                contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier.size(26.dp)
             )
@@ -416,9 +502,76 @@ private fun OtoCircularButton(
             text = title,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = OtoTextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+// ============================================================================
+// Media Artwork Cache & Formatting Helpers
+// ============================================================================
+
+private object BitmapMemoryCache {
+    private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSize = (maxMemory / 8).coerceAtLeast(1024)
+    val cache = object : LruCache<String, ImageBitmap>(cacheSize) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int {
+            return (value.width * value.height * 4) / 1024
+        }
+    }
+}
+
+@Composable
+private fun rememberRemoteBitmap(url: String?): ImageBitmap? {
+    if (url.isNullOrBlank()) return null
+    var bitmap by remember(url) { mutableStateOf(BitmapMemoryCache.cache.get(url)) }
+
+    LaunchedEffect(url) {
+        if (bitmap != null) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            try {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 3500
+                conn.readTimeout = 4000
+                conn.instanceFollowRedirects = true
+                conn.doInput = true
+                conn.connect()
+                if (conn.responseCode in 200..299) {
+                    conn.inputStream.use { stream ->
+                        val decoded = BitmapFactory.decodeStream(stream)
+                        if (decoded != null) {
+                            val imgBmp = decoded.asImageBitmap()
+                            BitmapMemoryCache.cache.put(url, imgBmp)
+                            bitmap = imgBmp
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Return gracefully without crashing, falling back to vector art
+            }
+        }
+    }
+    return bitmap
+}
+
+private fun resolveArtUrl(artUrl: String?, pcHost: String, pcPort: Int, trackKey: String): String? {
+    if (artUrl.isNullOrBlank()) return null
+    val trimmed = artUrl.trim()
+    return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        trimmed
+    } else {
+        val path = if (trimmed.startsWith("/")) trimmed else "/$trimmed"
+        val sep = if (path.contains("?")) "&" else "?"
+        "http://$pcHost:$pcPort$path${sep}k=${trackKey.hashCode()}"
+    }
+}
+
+private fun formatTimestamp(seconds: Float): String {
+    if (seconds.isNaN() || seconds < 0f) return "00:00"
+    val totalSecs = seconds.toInt()
+    val mins = totalSecs / 60
+    val secs = totalSecs % 60
+    return "%02d:%02d".format(mins, secs)
 }
 
 // ============================================================================
@@ -429,6 +582,8 @@ private fun OtoCircularButton(
 @Composable
 private fun OtoMiniPlayer(
     context: DesktopContext?,
+    pcHost: String,
+    pcPort: Int,
     isDispatching: Boolean,
     onExpandClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
@@ -440,44 +595,69 @@ private fun OtoMiniPlayer(
         ?: if (context?.activeWindow?.appName?.isNotBlank() == true) {
             context.activeWindow.appName
         } else {
-            "Desktop System Ready"
+            "Nothing playing"
         }
 
     val artistName = context?.media?.artist?.ifBlank { null }
         ?: if (context?.activeWindow?.title?.isNotBlank() == true) {
             context.activeWindow.title
         } else {
-            "Reflex LAN Daemon"
+            "Reflex remote"
         }
 
-    val volumeFraction = (context?.volume?.percent ?: 50) / 100f
+    val duration = context?.media?.durationSeconds ?: 0f
+    val basePosition = context?.media?.positionSeconds ?: 0f
+    var localPosition by remember(basePosition) { mutableFloatStateOf(basePosition) }
+
+    LaunchedEffect(isPlaying, basePosition) {
+        if (isPlaying && duration > 0f) {
+            while (isActive) {
+                delay(500)
+                localPosition = (localPosition + 0.5f).coerceAtMost(duration)
+            }
+        }
+    }
+
+    val progressFraction = if (duration > 0f) {
+        (localPosition / duration).coerceIn(0f, 1f)
+    } else {
+        ((context?.volume?.percent ?: 50) / 100f).coerceIn(0.05f, 1f)
+    }
+
+    val trackKey = "${context?.media?.title}_${context?.media?.artist}"
+    val resolvedArtUrl = resolveArtUrl(context?.media?.artUrl, pcHost, pcPort, trackKey)
+    val artBitmap = rememberRemoteBitmap(resolvedArtUrl)
 
     Surface(
-        color = OtoDarkSurface,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(72.dp)
             .border(
                 width = 0.8.dp,
-                color = OtoDarkOutlineVariant,
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
             )
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .clickable(onClick = onExpandClick)
+            .clickable(
+                onClickLabel = "Open player",
+                role = Role.Button,
+                onClick = onExpandClick
+            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Thin progress/volume indicator line at the top
+            // Real-time progress bar at the very top of Mini Player
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.5.dp)
-                    .background(OtoPlayerSliderInactive)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(fraction = volumeFraction.coerceIn(0.05f, 1f))
+                        .fillMaxWidth(fraction = progressFraction)
                         .fillMaxHeight()
-                        .background(OtoPlayerSliderActive)
+                        .background(MaterialTheme.colorScheme.primary)
                 )
             }
 
@@ -488,20 +668,34 @@ private fun OtoMiniPlayer(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Media Thumbnail with Album Art Styling
+                // Media Thumbnail with Album Art Styling and concentric border radius & outline depth
                 Box(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(OtoDarkCard),
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                            RoundedCornerShape(10.dp)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(id = if (isPlaying) R.drawable.ic_music_note else R.drawable.ic_reflex_logo),
-                        contentDescription = "Track Art",
-                        tint = if (isPlaying) OtoPlayerActiveControl else Color.Unspecified,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (artBitmap != null) {
+                        Image(
+                            bitmap = artBitmap,
+                            contentDescription = "Album Art",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = if (isPlaying) R.drawable.ic_music_note else R.drawable.ic_reflex_logo),
+                            contentDescription = null,
+                            tint = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
                 // Title & Subtitle column
@@ -513,7 +707,7 @@ private fun OtoMiniPlayer(
                         text = songTitle,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = OtoTextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -522,7 +716,7 @@ private fun OtoMiniPlayer(
                         text = artistName,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
-                        color = OtoTextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -535,44 +729,51 @@ private fun OtoMiniPlayer(
                 ) {
                     IconButton(
                         onClick = onPrevClick,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_skip_previous),
                             contentDescription = "Previous Track",
-                            tint = OtoPlayerActiveControl,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onPlayPauseClick,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         if (isDispatching) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(22.dp),
-                                color = OtoPlayerActiveControl,
+                                color = MaterialTheme.colorScheme.primary,
                                 strokeWidth = 2.5.dp
                             )
                         } else {
-                            Icon(
-                                painter = painterResource(id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = OtoPlayerActiveControl,
-                                modifier = Modifier.size(28.dp)
-                            )
+                            Box(
+                                modifier = Modifier.size(28.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow),
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .padding(start = if (isPlaying) 0.dp else 2.dp)
+                                )
+                            }
                         }
                     }
 
                     IconButton(
                         onClick = onNextClick,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_skip_next),
                             contentDescription = "Next Track",
-                            tint = OtoPlayerActiveControl,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -592,14 +793,16 @@ private fun OtoMiniPlayer(
 @Composable
 private fun OtoMediaBottomSheet(
     context: DesktopContext?,
+    pcHost: String,
+    pcPort: Int,
     connectionState: ConnectionState,
     onDismiss: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
+    onSeek: (Int) -> Unit,
     onToggleMute: () -> Unit,
-    onVolumeChange: (Int) -> Unit,
-    onCommandDispatch: (String) -> Unit
+    onVolumeChange: (Int) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isPlaying = context?.media?.isPlaying == true
@@ -619,6 +822,28 @@ private fun OtoMediaBottomSheet(
 
     val playerEngine = context?.media?.player?.ifBlank { null } ?: "WirePlumber"
 
+    val duration = context?.media?.durationSeconds ?: 0f
+    val basePosition = context?.media?.positionSeconds ?: 0f
+
+    var localPosition by remember(basePosition) { mutableFloatStateOf(basePosition) }
+    var isDraggingProgress by remember { mutableStateOf(false) }
+    var dragProgressPosition by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(isPlaying, basePosition) {
+        if (isPlaying && duration > 0f) {
+            while (isActive) {
+                delay(500)
+                if (!isDraggingProgress) {
+                    localPosition = (localPosition + 0.5f).coerceAtMost(duration)
+                }
+            }
+        }
+    }
+
+    val trackKey = "${context?.media?.title}_${context?.media?.artist}"
+    val resolvedArtUrl = resolveArtUrl(context?.media?.artUrl, pcHost, pcPort, trackKey)
+    val artBitmap = rememberRemoteBitmap(resolvedArtUrl)
+
     var currentVolumeSlider by remember(context?.volume?.percent) {
         mutableFloatStateOf((context?.volume?.percent ?: 50).toFloat())
     }
@@ -626,14 +851,14 @@ private fun OtoMediaBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = OtoDarkBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(top = 12.dp, bottom = 8.dp)
                     .size(width = 38.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(OtoActiveNavPill)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
             )
         }
     ) {
@@ -653,8 +878,8 @@ private fun OtoMediaBottomSheet(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_close),
-                        contentDescription = "Collapse Player",
-                        tint = OtoSearchIcon,
+                        contentDescription = "Close player",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -662,78 +887,87 @@ private fun OtoMediaBottomSheet(
                 Text(
                     text = "NOW PLAYING",
                     fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = OtoTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.6.sp
                 )
 
-                IconButton(onClick = { onCommandDispatch("volume 100") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_more_horiz),
-                        contentDescription = "Options",
-                        tint = OtoSearchIcon,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                // Keeps the title optically centered against the leading button.
+                Spacer(modifier = Modifier.size(48.dp))
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Large Album Artwork Display (Exact 260dp x 260dp squircle card with disc visualizer)
+            // Artwork scales with the sheet, capped so tablets don't get a wall of card.
             Card(
                 modifier = Modifier
-                    .size(260.dp)
-                    .clip(RoundedCornerShape(26.dp)),
-                colors = CardDefaults.cardColors(containerColor = OtoPlayerArtworkBg),
+                    .fillMaxWidth(0.72f)
+                    .widthIn(max = 260.dp)
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(26.dp))
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        RoundedCornerShape(26.dp)
+                    ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 shape = RoundedCornerShape(26.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Concentric soundwave circles canvas
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val maxRadius = size.minDimension / 2f
-                        drawCircle(
-                            color = OtoDarkSurfaceVariant.copy(alpha = 0.5f),
-                            radius = maxRadius * 0.9f,
-                            center = center,
-                            style = Stroke(width = 2f)
+                    if (artBitmap != null) {
+                        Image(
+                            bitmap = artBitmap,
+                            contentDescription = "Album Artwork",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                        drawCircle(
-                            color = OtoDarkSurfaceVariant.copy(alpha = 0.4f),
-                            radius = maxRadius * 0.7f,
-                            center = center,
-                            style = Stroke(width = 2f)
-                        )
-                        drawCircle(
-                            color = OtoDarkSurfaceVariant.copy(alpha = 0.3f),
-                            radius = maxRadius * 0.45f,
-                            center = center,
-                            style = Stroke(width = 2f)
+                    } else {
+                        // Concentric soundwave circles canvas fallback
+                        val ringColor = MaterialTheme.colorScheme.outlineVariant
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val maxRadius = size.minDimension / 2f
+                            drawCircle(
+                                color = ringColor.copy(alpha = 0.6f),
+                                radius = maxRadius * 0.9f,
+                                center = center,
+                                style = Stroke(width = 2f)
+                            )
+                            drawCircle(
+                                color = ringColor.copy(alpha = 0.5f),
+                                radius = maxRadius * 0.7f,
+                                center = center,
+                                style = Stroke(width = 2f)
+                            )
+                            drawCircle(
+                                color = ringColor.copy(alpha = 0.4f),
+                                radius = maxRadius * 0.45f,
+                                center = center,
+                                style = Stroke(width = 2f)
+                            )
+                        }
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_music_note),
+                            contentDescription = "Audio Art",
+                            tint = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.size(80.dp)
                         )
                     }
-
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_music_note),
-                        contentDescription = "Audio Art",
-                        tint = if (isPlaying) OtoPlayerPlayBtnBg else OtoActiveNavPill,
-                        modifier = Modifier.size(80.dp)
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Track Title & Artist Info
             Text(
                 text = songTitle,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = OtoTextPrimary,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -744,57 +978,150 @@ private fun OtoMediaBottomSheet(
                 text = "$artistName • $playerEngine",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
-                color = OtoTextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Time / Progress Slider (Simulated or audio duration)
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = 0.42f,
-                    onValueChange = {},
-                    enabled = false,
-                    colors = SliderDefaults.colors(
-                        thumbColor = OtoPlayerSliderActive,
-                        activeTrackColor = OtoPlayerSliderActive,
-                        inactiveTrackColor = OtoPlayerSliderInactive
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
+            // ================================================================
+            // REAL-TIME PLAYBACK PROGRESS SCRUBBER
+            // Features tabular monospace timestamps and smooth scrub handling
+            // ================================================================
+            if (duration > 0f) {
+                val currentSec = if (isDraggingProgress) dragProgressPosition else localPosition
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 4.dp)
                 ) {
-                    Text(text = "01:46", fontSize = 12.sp, color = OtoTextSecondary)
-                    Text(text = "03:44", fontSize = 12.sp, color = OtoTextSecondary)
+                    Slider(
+                        value = currentSec.coerceIn(0f, duration),
+                        onValueChange = {
+                            isDraggingProgress = true
+                            dragProgressPosition = it
+                        },
+                        onValueChangeFinished = {
+                            isDraggingProgress = false
+                            localPosition = dragProgressPosition
+                            onSeek(dragProgressPosition.toInt())
+                        },
+                        valueRange = 0f..duration,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = formatTimestamp(currentSec),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatTimestamp(duration),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // PC Volume Control Slider
+            // Transport controls (Skip Prev, Big Optical Play/Pause, Skip Next)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onPrev,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_skip_previous),
+                        contentDescription = "Previous track",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = onPlayPause),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                        ),
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .padding(start = if (isPlaying) 0.dp else 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_skip_next),
+                        contentDescription = "Next track",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Volume row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 IconButton(
                     onClick = onToggleMute,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(
                             id = if (context?.volume?.isMuted == true) R.drawable.ic_volume_off else R.drawable.ic_volume
                         ),
                         contentDescription = "Mute",
-                        tint = if (context?.volume?.isMuted == true) MaterialTheme.colorScheme.error else OtoTextSecondary,
+                        tint = if (context?.volume?.isMuted == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -805,177 +1132,49 @@ private fun OtoMediaBottomSheet(
                     onValueChangeFinished = { onVolumeChange(currentVolumeSlider.toInt()) },
                     valueRange = 0f..100f,
                     colors = SliderDefaults.colors(
-                        thumbColor = OtoPlayerSliderActive,
-                        activeTrackColor = OtoPlayerSliderActive,
-                        inactiveTrackColor = OtoPlayerSliderInactive
+                        thumbColor = MaterialTheme.colorScheme.secondary,
+                        activeTrackColor = MaterialTheme.colorScheme.secondary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     ),
                     modifier = Modifier.weight(1f)
                 )
 
                 IconButton(
                     onClick = { onVolumeChange(100) },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_volume_up),
                         contentDescription = "Max Volume",
-                        tint = OtoTextSecondary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Media Control Row (Shuffle, Prev, Big Play, Next, Repeat)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { onCommandDispatch("reflex \"volume -5\"") },
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_shuffle),
-                        contentDescription = "Shuffle",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onPrev,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_skip_previous),
-                        contentDescription = "Previous",
-                        tint = OtoPlayerActiveControl,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-
-                // Big Circular Play/Pause Button (72dp x 72dp in #D6E3FF)
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(OtoPlayerPlayBtnBg)
-                        .clickable(onClick = onPlayPause),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                        ),
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = OtoPlayerPlayBtnIcon,
-                        modifier = Modifier.size(38.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onNext,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_skip_next),
-                        contentDescription = "Next",
-                        tint = OtoPlayerActiveControl,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onToggleMute,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_refresh),
-                        contentDescription = "Repeat",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+            // Engine and link readout
+            val linkLabel = when (connectionState) {
+                is ConnectionState.Online -> "${connectionState.latencyMs} ms"
+                is ConnectionState.Offline -> "Offline"
+                ConnectionState.Checking -> "Checking link"
+                ConnectionState.Idle -> "Not connected"
             }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Exact Specs Row ("PIPEWIRE • 6 ms • 48.0 kHz • STEREO")
-            val latency = if (connectionState is ConnectionState.Online) connectionState.latencyMs else 5
             Text(
-                text = "PIPEWIRE • ${latency} ms • 48.0 kHz • STEREO",
+                text = "${playerEngine.uppercase()} • $linkLabel",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Medium,
-                color = OtoTextTertiary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 letterSpacing = 1.2.sp
             )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Bottom 5 Action Bar Icons (Lyrics/Transcript, Favorite, Sleep, Queue, More)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { onCommandDispatch("reflex \"unmute\"") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_chat),
-                        contentDescription = "Lyrics / Transcript",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                IconButton(onClick = { onCommandDispatch("reflex \"volume 50\"") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_favorite),
-                        contentDescription = "Favorite",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                IconButton(onClick = { onCommandDispatch("reflex \"lock screen\"") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_bedtime),
-                        contentDescription = "Sleep Timer / Lock",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                IconButton(onClick = { onCommandDispatch("reflex \"workspace 1\"") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_queue_music),
-                        contentDescription = "Queue / Workspace",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                IconButton(onClick = { onCommandDispatch("reflex \"screenshot window\"") }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_more_horiz),
-                        contentDescription = "More",
-                        tint = OtoPlayerInactiveControl,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
         }
     }
 }
 
 // ============================================================================
-// COMPONENT 5: Bottom Navigation Bar (Exact Oto Music Style)
-// 3 Tabs: Home, Commands, Settings with #3F4565 active pill indicator
+// COMPONENT 5: Bottom Navigation Bar (compact widths)
 // ============================================================================
 
 @Composable
@@ -983,15 +1182,22 @@ private fun OtoBottomNavigationBar(
     currentTab: ScreenTab,
     onTabSelect: (ScreenTab) -> Unit
 ) {
+    val itemColors = NavigationBarItemDefaults.colors(
+        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
     NavigationBar(
-        containerColor = OtoDarkSurface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
             .border(
                 width = 0.8.dp,
-                color = OtoDarkOutlineVariant,
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(0.dp)
             )
     ) {
@@ -1001,24 +1207,18 @@ private fun OtoBottomNavigationBar(
             icon = {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_home),
-                    contentDescription = "Home",
+                    contentDescription = null,
                     modifier = Modifier.size(22.dp)
                 )
             },
             label = {
                 Text(
                     text = "Home",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (currentTab == ScreenTab.REMOTE) FontWeight.Bold else FontWeight.Medium
                 )
             },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = OtoActiveNavPill,
-                selectedIconColor = OtoActiveNavIcon,
-                selectedTextColor = OtoTextPrimary,
-                unselectedIconColor = OtoInactiveNavIcon,
-                unselectedTextColor = OtoInactiveNavIcon
-            )
+            colors = itemColors
         )
 
         NavigationBarItem(
@@ -1026,25 +1226,19 @@ private fun OtoBottomNavigationBar(
             onClick = { onTabSelect(ScreenTab.DIRECTORY) },
             icon = {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_music_note),
-                    contentDescription = "Commands",
+                    painter = painterResource(id = R.drawable.ic_terminal),
+                    contentDescription = null,
                     modifier = Modifier.size(22.dp)
                 )
             },
             label = {
                 Text(
                     text = "Commands",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (currentTab == ScreenTab.DIRECTORY) FontWeight.Bold else FontWeight.Medium
                 )
             },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = OtoActiveNavPill,
-                selectedIconColor = OtoActiveNavIcon,
-                selectedTextColor = OtoTextPrimary,
-                unselectedIconColor = OtoInactiveNavIcon,
-                unselectedTextColor = OtoInactiveNavIcon
-            )
+            colors = itemColors
         )
 
         NavigationBarItem(
@@ -1053,24 +1247,88 @@ private fun OtoBottomNavigationBar(
             icon = {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_settings),
-                    contentDescription = "Settings",
+                    contentDescription = null,
                     modifier = Modifier.size(22.dp)
                 )
             },
             label = {
                 Text(
                     text = "Settings",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (currentTab == ScreenTab.SETTINGS) FontWeight.Bold else FontWeight.Medium
                 )
             },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = OtoActiveNavPill,
-                selectedIconColor = OtoActiveNavIcon,
-                selectedTextColor = OtoTextPrimary,
-                unselectedIconColor = OtoInactiveNavIcon,
-                unselectedTextColor = OtoInactiveNavIcon
-            )
+            colors = itemColors
+        )
+    }
+}
+
+// ============================================================================
+// COMPONENT 5b: Navigation Rail (expanded widths)
+// Same destinations as the bottom bar, restructured for tablet / foldable.
+// ============================================================================
+
+@Composable
+private fun OtoNavigationRail(
+    currentTab: ScreenTab,
+    onTabSelect: (ScreenTab) -> Unit
+) {
+    val itemColors = NavigationRailItemDefaults.colors(
+        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    NavigationRail(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxHeight()
+            .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        NavigationRailItem(
+            selected = currentTab == ScreenTab.REMOTE,
+            onClick = { onTabSelect(ScreenTab.REMOTE) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_home),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            label = { Text(text = "Home", fontSize = 11.sp) },
+            colors = itemColors
+        )
+
+        NavigationRailItem(
+            selected = currentTab == ScreenTab.DIRECTORY,
+            onClick = { onTabSelect(ScreenTab.DIRECTORY) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_music_note),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            label = { Text(text = "Commands", fontSize = 11.sp) },
+            colors = itemColors
+        )
+
+        NavigationRailItem(
+            selected = currentTab == ScreenTab.SETTINGS,
+            onClick = { onTabSelect(ScreenTab.SETTINGS) },
+            icon = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_settings),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            label = { Text(text = "Settings", fontSize = 11.sp) },
+            colors = itemColors
         )
     }
 }
@@ -1113,22 +1371,18 @@ private fun RemoteTabContent(
         // Top 4 Action Buttons
         item {
             OtoTopActionButtons(
-                onHistoryClick = { /* scroll or highlight history */ },
-                onFavoritesClick = {
-                    uiState.suggestedCommands.firstOrNull()?.let { onCommandDispatch(it.command) }
-                },
-                onMostPlayedClick = onOpenMediaSheet,
-                onShuffleClick = onOpenDirectory
+                onCommandsClick = onOpenDirectory,
+                onVoiceClick = onMicToggle,
+                onMediaClick = onOpenMediaSheet,
+                onRefreshClick = onRefreshContext
             )
         }
 
-        // Two Hero Carousel Cards: "For You Now" and "Audio Engine"
+        // Context readouts: active window and desktop volume
         item {
             OtoCarouselHeroRow(
                 context = uiState.desktopContext,
-                onForYouClick = {
-                    uiState.suggestedCommands.firstOrNull()?.let { onCommandDispatch(it.command) }
-                },
+                onForYouClick = onRefreshContext,
                 onAudioClick = onOpenMediaSheet
             )
         }
@@ -1171,42 +1425,45 @@ private fun RemoteTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "DISPATCH HISTORY",
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = OtoTextSecondary,
-                    letterSpacing = 1.2.sp
+                    text = "Dispatch history",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 if (uiState.history.isNotEmpty()) {
-                    Text(
-                        text = "CLEAR",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = OtoPlayerPlayBtnBg,
-                        modifier = Modifier
-                            .clickable(onClick = onClearHistory)
-                            .padding(4.dp)
-                    )
+                    TextButton(
+                        onClick = onClearHistory,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(
+                            text = "Clear",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
 
         if (uiState.history.isEmpty()) {
             item {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "No commands dispatched yet",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = OtoTextTertiary
+                        text = "Nothing dispatched yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Tap the mic or pick a command to send your first one.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1229,6 +1486,11 @@ private fun OtoCarouselHeroRow(
     onAudioClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val ringColor = MaterialTheme.colorScheme.outlineVariant
+    val dotColor = MaterialTheme.colorScheme.primary
+    val innerDotColor = MaterialTheme.colorScheme.primaryContainer
+    val dialColor = MaterialTheme.colorScheme.primaryContainer
+    val handColor = MaterialTheme.colorScheme.onPrimaryContainer
 
     Row(
         modifier = Modifier
@@ -1236,25 +1498,28 @@ private fun OtoCarouselHeroRow(
             .horizontalScroll(scrollState),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Card 1: "For You Now" - Focus on Active Window
+        // Card 1: what the desktop is focused on right now.
         Card(
             modifier = Modifier
                 .width(230.dp)
                 .height(230.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .clickable(onClick = onForYouClick),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2838)),
-            shape = RoundedCornerShape(26.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .clickable(
+                    onClickLabel = "Refresh desktop context",
+                    role = Role.Button,
+                    onClick = onForYouClick
+                ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+            shape = RoundedCornerShape(28.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Background artistic concentric radar circles
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val center = Offset(size.width * 0.75f, size.height * 0.35f)
-                    drawCircle(color = Color(0xFF2A364C).copy(alpha = 0.5f), radius = 100f, center = center, style = Stroke(2f))
-                    drawCircle(color = Color(0xFF2A364C).copy(alpha = 0.4f), radius = 160f, center = center, style = Stroke(2f))
-                    drawCircle(color = Color(0xFF2A364C).copy(alpha = 0.3f), radius = 220f, center = center, style = Stroke(2f))
-                    drawCircle(color = Color(0xFF7094C4), radius = 42f, center = center)
-                    drawCircle(color = Color(0xFFB5D0F5), radius = 18f, center = center)
+                    drawCircle(color = ringColor.copy(alpha = 0.6f), radius = 100f, center = center, style = Stroke(2f))
+                    drawCircle(color = ringColor.copy(alpha = 0.5f), radius = 160f, center = center, style = Stroke(2f))
+                    drawCircle(color = ringColor.copy(alpha = 0.4f), radius = 220f, center = center, style = Stroke(2f))
+                    drawCircle(color = dotColor, radius = 42f, center = center)
+                    drawCircle(color = innerDotColor, radius = 18f, center = center)
                 }
 
                 Column(
@@ -1264,42 +1529,42 @@ private fun OtoCarouselHeroRow(
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     Text(
-                        text = "• TUNED TO RIGHT NOW",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF9EA4B6)
+                        text = "Active window",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = context?.activeWindow?.appName?.ifBlank { "For You" } ?: "For You\nNow",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        lineHeight = 28.sp
+                        text = context?.activeWindow?.appName?.ifBlank { "No window focus" } ?: "Not connected",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
 
-        // Card 2: "Late Night Mix" - Audio & Volume Control
+        // Card 2: volume readout, opens the full player.
         Card(
             modifier = Modifier
                 .width(230.dp)
                 .height(230.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .clickable(onClick = onAudioClick),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF382622)),
-            shape = RoundedCornerShape(26.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .clickable(
+                    onClickLabel = "Open player",
+                    role = Role.Button,
+                    onClick = onAudioClick
+                ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            shape = RoundedCornerShape(28.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Background artistic clock/dial
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val center = Offset(size.width * 0.8f, size.height * 0.35f)
-                    drawCircle(color = Color(0xFFF7D5C8), radius = 55f, center = center)
-                    // Clock hands
-                    drawLine(color = Color(0xFF382622), start = center, end = Offset(center.x, center.y - 30f), strokeWidth = 3f)
-                    drawLine(color = Color(0xFF382622), start = center, end = Offset(center.x + 22f, center.y + 12f), strokeWidth = 3f)
+                    drawCircle(color = dialColor, radius = 55f, center = center)
+                    drawLine(color = handColor, start = center, end = Offset(center.x, center.y - 30f), strokeWidth = 3f)
+                    drawLine(color = handColor, start = center, end = Offset(center.x + 22f, center.y + 12f), strokeWidth = 3f)
                 }
 
                 Column(
@@ -1309,19 +1574,19 @@ private fun OtoCarouselHeroRow(
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     Text(
-                        text = "• FOR THIS HOUR",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFFE2B4A6)
+                        text = "Desktop volume",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "${context?.volume?.percent ?: 50}% Vol\nAudio Mix",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        lineHeight = 28.sp
+                        text = if (context?.volume?.isMuted == true) {
+                            "Muted"
+                        } else {
+                            "${context?.volume?.percent ?: 50}%"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
@@ -1347,79 +1612,106 @@ private fun OtoHiddenGemsSection(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Hidden gems",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = OtoTextPrimary
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Suggested for you",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-            Text(
-                text = "->",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = OtoSearchIcon
-            )
+            if (badge.isNotBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
 
-        // Horizontal Grid/List of commands
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 4.dp)
-        ) {
-            items(commands.take(6), key = { it.id }) { item ->
-                Surface(
-                    color = OtoDarkCard,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .width(220.dp)
-                        .height(72.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { onCommandClick(item.command) }
-                ) {
-                    Row(
+        if (commands.isEmpty()) {
+            Text(
+                text = "No suggestions yet. Connect to your PC to see context-aware commands.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            // Horizontal Grid/List of commands
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                items(commands.take(6), key = { it.id }) { item ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            .width(220.dp)
+                            .height(72.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(
+                                onClickLabel = "Run ${item.title}",
+                                role = Role.Button
+                            ) { onCommandClick(item.command) }
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(OtoDarkSurfaceVariant),
-                            contentAlignment = Alignment.Center
+                                .fillMaxSize()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_terminal),
-                                contentDescription = item.title,
-                                tint = OtoPlayerActiveControl,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_terminal),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = item.title,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = OtoTextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = item.command,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = OtoTextSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.title,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = item.command,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -1439,14 +1731,18 @@ private fun VoiceHeroSection(
     audioLevel: Float,
     onMicClick: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(850, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+    // Only animates while there is something to show, so idle stays off the frame clock.
+    val pulseActive = isListening || isDispatching
+    val pulseScale by animateFloatAsState(
+        targetValue = if (pulseActive) 1.22f else 1f,
+        animationSpec = if (pulseActive) {
+            infiniteRepeatable(
+                animation = tween(850, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            )
+        } else {
+            tween(150)
+        },
         label = "pulseScale"
     )
 
@@ -1473,14 +1769,14 @@ private fun VoiceHeroSection(
                         .size(140.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(OtoFavoritesBg.copy(alpha = 0.5f))
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
                 )
                 Box(
                     modifier = Modifier
                         .size(118.dp)
                         .scale(dynamicAudioScale)
                         .clip(CircleShape)
-                        .background(OtoFavoritesBg.copy(alpha = 0.8f))
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f))
                 )
             } else if (isDispatching) {
                 Box(
@@ -1488,7 +1784,7 @@ private fun VoiceHeroSection(
                         .size(125.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(OtoHistoryBg.copy(alpha = 0.6f))
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f))
                 )
             }
 
@@ -1497,35 +1793,39 @@ private fun VoiceHeroSection(
                 modifier = Modifier
                     .size(88.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = onMicClick),
+                    .clickable(
+                        onClickLabel = if (isListening) "Stop listening" else "Start listening",
+                        role = Role.Button,
+                        onClick = onMicClick
+                    ),
                 shape = CircleShape,
-                shadowElevation = 8.dp,
+                shadowElevation = 0.dp,
                 color = Color.Transparent
             ) {
                 val buttonGradient = when {
-                    isListening -> Brush.linearGradient(listOf(OtoFavoritesBg, Color(0xFF881337)))
-                    isDispatching -> Brush.linearGradient(listOf(OtoHistoryBg, Color(0xFF0F2B48)))
-                    else -> Brush.linearGradient(listOf(Color(0xFF1B2D46), Color(0xFF0F1B2B)))
+                    isListening -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.error))
+                    isDispatching -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary))
+                    else -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surfaceContainerHighest))
                 }
 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(buttonGradient)
-                        .border(1.dp, OtoDarkOutline, CircleShape),
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isDispatching) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(38.dp),
-                            color = OtoPlayerPlayBtnBg,
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 3.dp
                         )
                     } else {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_mic),
-                            contentDescription = "Voice Input",
-                            tint = if (isListening) OtoFavoritesIcon else OtoPlayerPlayBtnBg,
+                            contentDescription = null,
+                            tint = if (isListening) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(38.dp)
                         )
                     }
@@ -1536,18 +1836,15 @@ private fun VoiceHeroSection(
         Spacer(modifier = Modifier.height(4.dp))
 
         val statusText = when {
-            isDispatching -> "DISPATCHING TO PC..."
-            isListening -> "LISTENING TO VOICE..."
-            else -> "TAP OR HOLD TO SPEAK"
+            isDispatching -> "Sending to PC"
+            isListening -> "Listening — tap to stop"
+            else -> "Tap to speak"
         }
 
         Text(
             text = statusText,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.4.sp,
-            color = if (isListening) OtoFavoritesIcon else OtoTextSecondary
+            style = MaterialTheme.typography.labelLarge,
+            color = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -1567,8 +1864,8 @@ private fun LiveTranscriptCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .border(1.dp, OtoDarkOutline, RoundedCornerShape(20.dp)),
-        colors = CardDefaults.cardColors(containerColor = OtoDarkSurface),
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
@@ -1582,24 +1879,21 @@ private fun LiveTranscriptCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "TRANSCRIPT & TELEMETRY",
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = OtoTextSecondary,
-                    letterSpacing = 1.2.sp
+                    text = "Transcript",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 if (lastResponse != null) {
-                    val badgeColor = if (lastResponse.isSuccess) OtoOnlineGreen else MaterialTheme.colorScheme.error
+                    val badgeColor = if (lastResponse.isSuccess) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                     Surface(
                         color = badgeColor.copy(alpha = 0.15f),
                         shape = RoundedCornerShape(999.dp)
                     ) {
                         Text(
                             text = lastResponse.status.uppercase(),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
+                            /* monospace telemetry */
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = badgeColor,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -1611,17 +1905,20 @@ private fun LiveTranscriptCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             val displayTranscript = when {
+                isDispatching -> "Sending to PC…"
                 transcript.isNotBlank() -> transcript
-                isListening -> "..."
-                else -> "Say: \"sound 50\", \"next\", \"unmute\", \"pause\""
+                isListening -> "Listening…"
+                else -> "Say \"sound 50\", \"next\", \"unmute\", or \"pause\""
             }
 
             Text(
                 text = displayTranscript,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (transcript.isNotBlank()) OtoTextPrimary else OtoTextSecondary,
-                lineHeight = 20.sp
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (transcript.isNotBlank() || isDispatching) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
 
             if (lastResponse != null) {
@@ -1630,23 +1927,27 @@ private fun LiveTranscriptCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(OtoDarkCard)
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
                         .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = lastResponse.action ?: lastResponse.reason ?: "Executed",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = OtoPlayerPlayBtnBg,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     Text(
-                        text = "${lastResponse.durationUs}us PC / ${lastResponse.roundTripMs}ms Net",
-                        fontSize = 10.sp,
+                        text = "${lastResponse.durationUs} us PC / ${lastResponse.roundTripMs} ms net",
+                        fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = OtoTextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
             }
@@ -1657,11 +1958,11 @@ private fun LiveTranscriptCard(
 @Composable
 private fun HistoryItemCard(item: CommandLogItem) {
     Surface(
-        color = OtoDarkCard,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(0.8.dp, OtoDarkOutlineVariant, RoundedCornerShape(14.dp))
+            .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
     ) {
         Row(
             modifier = Modifier
@@ -1674,7 +1975,7 @@ private fun HistoryItemCard(item: CommandLogItem) {
                 modifier = Modifier
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(if (item.isError) MaterialTheme.colorScheme.error else OtoOnlineGreen)
+                    .background(if (item.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
             )
 
             Column(modifier = Modifier.weight(1f)) {
@@ -1683,12 +1984,17 @@ private fun HistoryItemCard(item: CommandLogItem) {
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = OtoTextPrimary
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = item.response?.action ?: item.errorMessage ?: "Success",
+                    text = when {
+                        item.isError -> item.errorMessage ?: "Failed"
+                        else -> item.response?.action ?: "Sent"
+                    },
                     fontSize = 11.sp,
-                    color = OtoTextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1698,7 +2004,7 @@ private fun HistoryItemCard(item: CommandLogItem) {
                 text = item.timestamp,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = OtoTextTertiary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -1710,11 +2016,11 @@ private fun StatusBanner(
     onDismiss: () -> Unit
 ) {
     Surface(
-        color = Color(0xFF3F1318),
+        color = MaterialTheme.colorScheme.errorContainer,
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFF7F1D1D), RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(14.dp))
             .clickable(onClick = onDismiss)
     ) {
         Row(
@@ -1727,20 +2033,20 @@ private fun StatusBanner(
             Icon(
                 painter = painterResource(id = R.drawable.ic_alert),
                 contentDescription = "Alert",
-                tint = Color(0xFFFCA5A5),
+                tint = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = text,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                color = Color(0xFFFCA5A5),
+                /* monospace telemetry */
+                color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 painter = painterResource(id = R.drawable.ic_close),
                 contentDescription = "Dismiss",
-                tint = Color(0xFFFCA5A5),
+                tint = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -1798,88 +2104,185 @@ private fun CommandDirectoryTabContent(
                 items(CommandCategory.values()) { cat ->
                     val isSelected = cat == selectedCategory
                     Surface(
-                        color = if (isSelected) OtoActiveNavPill else OtoDarkSurface,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                        },
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
-                            .border(0.8.dp, if (isSelected) OtoPlayerPlayBtnBg else OtoDarkOutline, RoundedCornerShape(16.dp))
+                            .heightIn(min = 48.dp)
+                            .border(
+                                0.8.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                RoundedCornerShape(16.dp)
+                            )
                             .clip(RoundedCornerShape(16.dp))
-                            .clickable { onCategoryChange(cat) }
+                            .selectable(selected = isSelected, onClick = { onCategoryChange(cat) })
                     ) {
-                        Text(
-                            text = cat.label,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) OtoActiveNavIcon else OtoTextSecondary,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = cat.label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        items(filteredItems, key = { it.id }) { item ->
-            Surface(
-                color = OtoDarkCard,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(0.8.dp, OtoDarkOutlineVariant, RoundedCornerShape(14.dp))
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable { onCommandClick(item) }
-            ) {
-                Row(
+        when {
+            allItems.isEmpty() -> item {
+                DirectoryMessage(
+                    title = "Loading commands",
+                    body = "Reading the command catalog from the app bundle.",
+                    showSpinner = true
+                )
+            }
+
+            filteredItems.isEmpty() -> item {
+                DirectoryMessage(
+                    title = "No commands match",
+                    body = if (searchQuery.isBlank()) {
+                        "Nothing in ${selectedCategory.label}. Try another category."
+                    } else {
+                        "Nothing matches \"$searchQuery\". Check the spelling or clear the search."
+                    },
+                    actionLabel = if (searchQuery.isNotBlank()) "Clear search" else "Show all",
+                    onAction = {
+                        if (searchQuery.isNotBlank()) {
+                            onSearchQueryChange("")
+                        } else {
+                            onCategoryChange(CommandCategory.ALL)
+                        }
+                    }
+                )
+            }
+
+            else -> items(filteredItems, key = { it.id }) { item ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onCommandClick(item) }
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(OtoDarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_terminal),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = item.description,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = item.command,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_terminal),
-                            contentDescription = item.title,
-                            tint = OtoPlayerActiveControl,
+                            painter = painterResource(id = R.drawable.ic_play_arrow),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.title,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = OtoTextPrimary
-                        )
-                        Text(
-                            text = item.description,
-                            fontSize = 12.sp,
-                            color = OtoTextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = item.command,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = OtoPlayerPlayBtnBg,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_play_arrow),
-                        contentDescription = "Run",
-                        tint = OtoTextSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DirectoryMessage(
+    title: String,
+    body: String,
+    showSpinner: Boolean = false,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (showSpinner) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 2.5.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+
+        if (actionLabel != null && onAction != null) {
+            OutlinedButton(
+                onClick = onAction,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
+                Text(actionLabel)
             }
         }
     }
@@ -1893,30 +2296,48 @@ private fun CommandDirectoryTabContent(
 private fun SettingsTabContent(
     uiState: MainUiState,
     onSaveSettings: (String, Int, ThemeMode) -> Unit,
-    onPing: () -> Unit
+    onPing: () -> Unit,
+    onThemeChange: (ThemeMode) -> Unit
 ) {
     var hostInput by remember(uiState.pcHost) { mutableStateOf(uiState.pcHost) }
     var portInput by remember(uiState.pcPort) { mutableStateOf(uiState.pcPort.toString()) }
-    var selectedTheme by remember(uiState.themeMode) { mutableStateOf(uiState.themeMode) }
+    var showErrors by remember { mutableStateOf(false) }
+
+    val trimmedHost = hostInput.trim()
+    val hostError = when {
+        trimmedHost.isEmpty() -> "Enter the PC's address"
+        trimmedHost.any { it.isWhitespace() } -> "Address can't contain spaces"
+        else -> null
+    }
+
+    val portValue = portInput.trim().toIntOrNull()
+    val portError = when {
+        portInput.isBlank() -> "Enter a port"
+        portValue == null -> "Port must be a number"
+        portValue !in 1..65535 -> "Port must be between 1 and 65535"
+        else -> null
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "Settings",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = OtoTextPrimary
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
+        // --- Connection ---
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, OtoDarkOutline, RoundedCornerShape(18.dp)),
-            colors = CardDefaults.cardColors(containerColor = OtoDarkSurface),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             shape = RoundedCornerShape(18.dp)
         ) {
             Column(
@@ -1925,54 +2346,194 @@ private fun SettingsTabContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "PC Connection",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OtoTextPrimary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PC connection",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    ConnectionBadge(connectionState = uiState.connectionState)
+                }
 
                 OutlinedTextField(
                     value = hostInput,
-                    onValueChange = { hostInput = it },
-                    label = { Text("PC IP Address") },
+                    onValueChange = {
+                        hostInput = it
+                        showErrors = false
+                    },
+                    label = { Text("PC address") },
+                    placeholder = { Text("192.168.0.105") },
                     singleLine = true,
+                    isError = showErrors && hostError != null,
+                    supportingText = if (showErrors && hostError != null) {
+                        { Text(hostError) }
+                    } else {
+                        null
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = OtoTextPrimary,
-                        unfocusedTextColor = OtoTextPrimary,
-                        focusedBorderColor = OtoPlayerPlayBtnBg,
-                        unfocusedBorderColor = OtoDarkOutline
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = portInput,
-                    onValueChange = { portInput = it },
-                    label = { Text("Port (default 9421)") },
+                    onValueChange = {
+                        portInput = it
+                        showErrors = false
+                    },
+                    label = { Text("Port") },
+                    placeholder = { Text("9421") },
                     singleLine = true,
+                    isError = showErrors && portError != null,
+                    supportingText = if (showErrors && portError != null) {
+                        { Text(portError) }
+                    } else {
+                        null
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = OtoTextPrimary,
-                        unfocusedTextColor = OtoTextPrimary,
-                        focusedBorderColor = OtoPlayerPlayBtnBg,
-                        unfocusedBorderColor = OtoDarkOutline
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Button(
-                    onClick = {
-                        val port = portInput.toIntOrNull() ?: 9421
-                        onSaveSettings(hostInput, port, selectedTheme)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = OtoPlayerPlayBtnBg, contentColor = OtoPlayerPlayBtnIcon),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Save & Connect", fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = {
+                            if (hostError != null || portError != null) {
+                                showErrors = true
+                            } else {
+                                onSaveSettings(trimmedHost, portValue ?: 9421, uiState.themeMode)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text("Save & connect", fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onPing,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text("Test")
+                    }
                 }
             }
+        }
+
+        // --- Appearance ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Appearance",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                ThemeMode.values().forEach { mode ->
+                    val label = when (mode) {
+                        ThemeMode.SYSTEM -> "Follow system"
+                        ThemeMode.LIGHT -> "Light"
+                        ThemeMode.DARK -> "Dark"
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .selectable(
+                                selected = uiState.themeMode == mode,
+                                role = Role.RadioButton,
+                                onClick = { onThemeChange(mode) }
+                            )
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RadioButton(
+                            selected = uiState.themeMode == mode,
+                            onClick = null,
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionBadge(connectionState: ConnectionState) {
+    val (label, tint) = when (connectionState) {
+        is ConnectionState.Online -> "Online" to OtoOnlineGreen
+        is ConnectionState.Offline -> "Offline" to MaterialTheme.colorScheme.error
+        ConnectionState.Checking -> "Checking" to MaterialTheme.colorScheme.onSurfaceVariant
+        ConnectionState.Idle -> "Not connected" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Surface(
+        color = tint.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(tint)
+            )
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = tint
+            )
         }
     }
 }

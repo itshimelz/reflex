@@ -315,11 +315,26 @@ class ReflexClient {
 
         val mediaObj = json.optJSONObject("media")
         val media = if (mediaObj != null) {
+            val pos = if (mediaObj.has("position_seconds") && !mediaObj.isNull("position_seconds")) {
+                mediaObj.optDouble("position_seconds").toFloat()
+            } else null
+
+            val dur = if (mediaObj.has("duration_seconds") && !mediaObj.isNull("duration_seconds")) {
+                mediaObj.optDouble("duration_seconds").toFloat()
+            } else null
+
+            val art = if (mediaObj.has("art_url") && !mediaObj.isNull("art_url")) {
+                mediaObj.optString("art_url").ifBlank { null }
+            } else null
+
             MediaContext(
                 player = mediaObj.optString("player", ""),
                 title = mediaObj.optString("title", ""),
                 artist = mediaObj.optString("artist", ""),
-                status = mediaObj.optString("status", "Stopped")
+                status = mediaObj.optString("status", "Stopped"),
+                positionSeconds = pos,
+                durationSeconds = dur,
+                artUrl = art
             )
         } else {
             MediaContext()

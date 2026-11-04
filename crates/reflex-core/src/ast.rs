@@ -20,6 +20,7 @@ pub enum MediaAction {
     Replay,
     SeekForward(u32),
     SeekBackward(u32),
+    SeekAbsolute(u32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

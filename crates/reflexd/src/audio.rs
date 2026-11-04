@@ -140,6 +140,12 @@ impl AudioDriver {
                         .call_method(Some(dest), path, Some(interface), "Seek", &(offset_us))
                         .await;
                 }
+                MediaAction::SeekAbsolute(secs) => {
+                    let _ = tokio::process::Command::new("playerctl")
+                        .args(["position", &secs.to_string()])
+                        .status()
+                        .await;
+                }
             }
         }
 

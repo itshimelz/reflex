@@ -11,7 +11,10 @@ data class MediaContext(
     val player: String = "",
     val title: String = "",
     val artist: String = "",
-    val status: String = "Stopped"
+    val status: String = "Stopped",
+    val positionSeconds: Float? = null,
+    val durationSeconds: Float? = null,
+    val artUrl: String? = null
 ) {
     val isPlaying: Boolean
         get() = status.equals("Playing", ignoreCase = true)

@@ -20,6 +20,8 @@ use tracing::{error, info, warn};
 
 pub const DEFAULT_NETWORK_PORT: u16 = 9421;
 
+static CURRENT_ART_FILE: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+
 #[derive(Deserialize)]
 struct CommandPayload {
     command: String,
@@ -46,6 +48,9 @@ pub struct MediaInfo {
     pub title: String,
     pub artist: String,
     pub status: String,
+    pub position_seconds: Option<f64>,
+    pub duration_seconds: Option<f64>,
+    pub art_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,32 +112,110 @@ pub async fn fetch_desktop_context(ctx: &ServerContext) -> DesktopContextPayload
         None
     };
 
-    // 2. Fetch media info via playerctl
+    // 2. Fetch media info via playerctl (querying all players with -a to find the richest metadata)
     let media = match tokio::process::Command::new("playerctl")
-        .args(["metadata", "--format", "{{title}}|||{{artist}}|||{{status}}|||{{playerName}}"])
+        .args([
+            "-a",
+            "metadata",
+            "--format",
+            "{{title}}|||{{artist}}|||{{status}}|||{{playerName}}|||{{position}}|||{{mpris:length}}|||{{mpris:artUrl}}|||{{xesam:url}}",
+        ])
         .output()
         .await
     {
         Ok(out) if out.status.success() => {
-            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let parts: Vec<&str> = s.split("|||").collect();
-            if parts.len() >= 4 {
-                Some(MediaInfo {
-                    title: parts[0].trim().to_string(),
-                    artist: parts[1].trim().to_string(),
-                    status: parts[2].trim().to_string(),
-                    player: parts[3].trim().to_string(),
-                })
-            } else if !s.is_empty() {
-                Some(MediaInfo {
-                    title: s,
-                    artist: String::new(),
-                    status: "Playing".to_string(),
-                    player: "media".to_string(),
-                })
-            } else {
-                None
+            let output_str = String::from_utf8_lossy(&out.stdout);
+            let mut candidates: Vec<MediaInfo> = Vec::new();
+
+            for line in output_str.lines() {
+                let s = line.trim();
+                if s.is_empty() {
+                    continue;
+                }
+                let parts: Vec<&str> = s.split("|||").collect();
+                if parts.len() >= 4 {
+                    let title = parts[0].trim().to_string();
+                    let artist = parts[1].trim().to_string();
+                    let status = parts[2].trim().to_string();
+                    let player = parts[3].trim().to_string();
+
+                    if title.is_empty() && artist.is_empty() {
+                        continue;
+                    }
+
+                    let position_seconds = parts
+                        .get(4)
+                        .and_then(|p| p.trim().parse::<f64>().ok())
+                        .map(|p| p / 1_000_000.0);
+
+                    let duration_seconds = parts
+                        .get(5)
+                        .and_then(|l| l.trim().parse::<f64>().ok())
+                        .filter(|&d| d > 0.0)
+                        .map(|d| d / 1_000_000.0);
+
+                    let raw_art = parts.get(6).map(|a| a.trim().to_string()).unwrap_or_default();
+                    let media_url = parts.get(7).map(|u| u.trim().to_string()).unwrap_or_default();
+
+                    let art_url = if raw_art.starts_with("file://") {
+                        let local_path = raw_art.trim_start_matches("file://").to_string();
+                        if let Ok(mut lock) = CURRENT_ART_FILE.write() {
+                            *lock = Some(local_path);
+                        }
+                        Some("/api/media/art".to_string())
+                    } else if raw_art.starts_with("http://") || raw_art.starts_with("https://") {
+                        Some(raw_art)
+                    } else if media_url.contains("youtube.com/watch?v=") {
+                        // Extract YouTube video ID
+                        let vid = media_url
+                            .split("watch?v=")
+                            .nth(1)
+                            .and_then(|s| s.split('&').next())
+                            .unwrap_or("");
+                        if !vid.is_empty() {
+                            Some(format!("https://img.youtube.com/vi/{}/hqdefault.jpg", vid))
+                        } else {
+                            None
+                        }
+                    } else if media_url.contains("youtu.be/") {
+                        let vid = media_url
+                            .split("youtu.be/")
+                            .nth(1)
+                            .and_then(|s| s.split('?').next())
+                            .unwrap_or("");
+                        if !vid.is_empty() {
+                            Some(format!("https://img.youtube.com/vi/{}/hqdefault.jpg", vid))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    candidates.push(MediaInfo {
+                        title,
+                        artist,
+                        status,
+                        player,
+                        position_seconds,
+                        duration_seconds,
+                        art_url,
+                    });
+                }
             }
+
+            // Pick best candidate: prefer Playing, then prefer one with art_url, then with artist
+            candidates.sort_by(|a, b| {
+                let a_score = (if a.status.eq_ignore_ascii_case("playing") { 10 } else { 0 })
+                    + (if a.art_url.is_some() { 5 } else { 0 })
+                    + (if !a.artist.is_empty() { 3 } else { 0 });
+                let b_score = (if b.status.eq_ignore_ascii_case("playing") { 10 } else { 0 })
+                    + (if b.art_url.is_some() { 5 } else { 0 })
+                    + (if !b.artist.is_empty() { 3 } else { 0 });
+                b_score.cmp(&a_score)
+            });
+
+            candidates.into_iter().next()
         }
         _ => None,
     };
@@ -268,6 +351,7 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
 
     let method = parts[0];
     let path = parts[1];
+    let clean_path = path.split('?').next().unwrap_or(path);
 
     if method == "OPTIONS" {
         let cors_resp = "HTTP/1.1 200 OK\r\n\
@@ -280,7 +364,7 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
         return;
     }
 
-    if method == "GET" && (path == "/ping" || path == "/api/status" || path == "/") {
+    if method == "GET" && (clean_path == "/ping" || clean_path == "/api/status" || clean_path == "/") {
         let context_data = fetch_desktop_context(ctx).await;
         let response_payload = serde_json::json!({
             "status": "ok",
@@ -302,7 +386,7 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
         return;
     }
 
-    if method == "GET" && path == "/api/context" {
+    if method == "GET" && clean_path == "/api/context" {
         let context_data = fetch_desktop_context(ctx).await;
         let body = serde_json::to_string(&context_data).unwrap_or_default();
         let resp = format!(
@@ -315,6 +399,46 @@ async fn handle_http_request(stream: &mut TcpStream, request: &str, ctx: &Server
             body
         );
         let _ = stream.write_all(resp.as_bytes()).await;
+        return;
+    }
+
+    if method == "GET" && clean_path == "/api/media/art" {
+        let art_path = CURRENT_ART_FILE
+            .read()
+            .ok()
+            .and_then(|guard| guard.clone());
+
+        if let Some(path) = art_path {
+            if let Ok(bytes) = tokio::fs::read(&path).await {
+                let content_type = if path.ends_with(".png") {
+                    "image/png"
+                } else if path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".jfif") {
+                    "image/jpeg"
+                } else if path.ends_with(".webp") {
+                    "image/webp"
+                } else {
+                    "image/jpeg"
+                };
+
+                let resp_header = format!(
+                    "HTTP/1.1 200 OK\r\n\
+                    Content-Type: {}\r\n\
+                    Access-Control-Allow-Origin: *\r\n\
+                    Content-Length: {}\r\n\
+                    Connection: close\r\n\r\n",
+                    content_type,
+                    bytes.len()
+                );
+
+                let _ = stream.write_all(resp_header.as_bytes()).await;
+                let _ = stream.write_all(&bytes).await;
+                let _ = stream.flush().await;
+                return;
+            }
+        }
+
+        let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        let _ = stream.write_all(not_found.as_bytes()).await;
         return;
     }
 

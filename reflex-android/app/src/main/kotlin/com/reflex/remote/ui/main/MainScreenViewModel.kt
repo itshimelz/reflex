@@ -58,7 +58,6 @@ data class MainUiState(
     val currentTranscript: String = "",
     val lastResponse: ReflexResponse? = null,
     val history: List<CommandLogItem> = emptyList(),
-    val showSettingsDialog: Boolean = false,
     val isDispatching: Boolean = false,
     val statusBanner: String? = null,
     val directoryCategory: CommandCategory = CommandCategory.ALL,
@@ -291,14 +290,6 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun openSettingsDialog() {
-        _uiState.update { it.copy(showSettingsDialog = true) }
-    }
-
-    fun closeSettingsDialog() {
-        _uiState.update { it.copy(showSettingsDialog = false) }
-    }
-
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString("theme_mode", mode.name).apply()
         _uiState.update { it.copy(themeMode = mode) }
@@ -316,8 +307,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
             it.copy(
                 pcHost = cleanHost,
                 pcPort = port,
-                themeMode = themeMode,
-                showSettingsDialog = false
+                themeMode = themeMode
             )
         }
         pingHost()
@@ -353,6 +343,10 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setVolume(percent: Int) {
         dispatchCommand("volume $percent")
+    }
+
+    fun seekTo(seconds: Int) {
+        dispatchCommand("seek $seconds")
     }
 
     fun setMediaSheetExpanded(expanded: Boolean) {

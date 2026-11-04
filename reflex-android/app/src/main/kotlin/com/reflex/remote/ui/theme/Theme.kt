@@ -1,13 +1,17 @@
 package com.reflex.remote.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -84,6 +88,7 @@ val OtoLightColorScheme = lightColorScheme(
 @Composable
 fun ReflexTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    // The palette is the brand. Wallpaper-derived colors would replace it, so it stays off by default.
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -93,7 +98,11 @@ fun ReflexTheme(
         ThemeMode.DARK -> true
     }
 
-    val colorScheme = if (darkTheme) OtoDarkColorScheme else OtoLightColorScheme
+    val context = LocalContext.current
+    val dynamicScheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else null
+    val colorScheme = dynamicScheme ?: if (darkTheme) OtoDarkColorScheme else OtoLightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {

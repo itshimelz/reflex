@@ -146,6 +146,20 @@ pub fn parse_action(input: &str) -> Option<Action> {
         if let Some(n) = parse_number(trimmed) {
             return Some(Action::Media(MediaAction::SeekBackward(n as u32)));
         }
+    } else if let Some(rest) = clean
+        .strip_prefix("seek to")
+        .or_else(|| clean.strip_prefix("seek"))
+        .or_else(|| clean.strip_prefix("position"))
+        .or_else(|| clean.strip_prefix("jump to"))
+    {
+        let trimmed = rest
+            .trim()
+            .trim_end_matches("seconds")
+            .trim_end_matches("second")
+            .trim();
+        if let Some(n) = parse_number(trimmed) {
+            return Some(Action::Media(MediaAction::SeekAbsolute(n as u32)));
+        }
     }
 
     // 3. Audio actions
