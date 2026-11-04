@@ -300,6 +300,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                     _uiState.update { current ->
                         current.copy(
                             isDispatching = false,
+                            currentTranscript = "",
                             lastResponse = resp,
                             history = listOf(item) + current.history.take(49),
                             connectionState = ConnectionState.Online(resp.roundTripMs),
@@ -347,6 +348,7 @@ class MainScreenViewModel(application: Application) : AndroidViewModel(applicati
                     _uiState.update { current ->
                         current.copy(
                             isDispatching = false,
+                            currentTranscript = "",
                             history = listOf(item) + current.history.take(49),
                             connectionState = ConnectionState.Offline(err.message ?: "Connection failed"),
                             statusBanner = "Host unreachable: ${err.message}"

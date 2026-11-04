@@ -2211,8 +2211,8 @@ private fun RemoteTabContent(
             )
         }
 
-        // Live Voice Transcript & Telemetry (Visible only while listening or dispatching)
-        if (uiState.isListening || uiState.isDispatching || !uiState.currentTranscript.isNullOrBlank()) {
+        // Live Voice Transcript & Telemetry (Visible only while actively listening or dispatching)
+        if (uiState.isListening || uiState.isDispatching) {
             item {
                 LiveTranscriptCard(
                     transcript = uiState.currentTranscript,
